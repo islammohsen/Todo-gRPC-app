@@ -14,8 +14,8 @@ import (
 )
 
 func addTodo(ctx context.Context, todoService todo.TodoServiceClient, userID int, todoItem string) {
-	message := todo.AddTodoRequest{Item: &todo.TodoItem{UserID: int32(userID), TodoID: -1, Todo: todoItem}}
-	response, err := todoService.AddTodo(ctx, &message)
+	message := &todo.AddTodoRequest{Item: &todo.TodoItem{UserID: int32(userID), TodoID: -1, Todo: todoItem}}
+	response, err := todoService.AddTodo(ctx, message)
 
 	if err != nil {
 		log.Printf("Error when calling add todo %s", err)
@@ -78,8 +78,8 @@ func testingCounter(ctx context.Context, todoService todo.TodoServiceClient) {
 	log.Println("Closed")
 }
 
-func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userIDS []int) []todo.TodoItem {
-	todos := make([]todo.TodoItem, 0)
+func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userIDS []int) []*todo.TodoItem {
+	todos := make([]*todo.TodoItem, 0)
 	stream, err := todoService.GetUserTodos(ctx, grpc.EmptyCallOption{})
 	if err != nil {
 		log.Printf("Error couldn't init stream %s", err)
@@ -100,13 +100,13 @@ func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userI
 			userTodoItems := message.Items
 			log.Println("Received ", userTodoItems)
 			for _, todoItem := range userTodoItems {
-				todos = append(todos, *todoItem)
+				todos = append(todos, todoItem)
 			}
 		}
 	}()
-	for i := 0; i < len(userIDS); i++ {
-		log.Println("Sending ", userIDS[i])
-		stream.Send(&todo.GetUserTodosRequest{UserID: int32(userIDS[i])})
+	for _, id := range userIDS {
+		log.Println("Sending ", id)
+		stream.Send(&todo.GetUserTodosRequest{UserID: int32(id)})
 	}
 	log.Println("Closing client")
 	if err := stream.CloseSend(); err != nil {

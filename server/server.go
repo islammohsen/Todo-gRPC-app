@@ -13,7 +13,7 @@ func main() {
 	if err != nil {
 		log.Printf("Failed to listen to port 9009 : %v", err)
 	}
-	s := todo.Server{}
+	s := todo.Server{Todos: make([]*todo.TodoItem, 0)}
 	grpcServer := grpc.NewServer()
 	todo.RegisterTodoServiceServer(grpcServer, &s)
 
