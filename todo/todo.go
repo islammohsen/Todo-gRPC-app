@@ -17,7 +17,7 @@ func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
 func (s *Server) AddTodo(ctx context.Context, message *AddTodoRequest) (*AddTodoResponse, error) {
 	log.Printf("Received : %v", message)
 	item := *message.GetItem()
-	item.Id = int32(len(todos) + 1)
+	item.TodoID = int32(len(todos) + 1)
 	todos = append(todos, item)
 	return &AddTodoResponse{Item: &item}, nil
 }
@@ -62,6 +62,34 @@ func (s *Server) CountingTest(stream TodoService_CountingTestServer) error {
 		case <-time.NewTicker(time.Second).C:
 			log.Println("Sending ", (*val).Counter+1)
 			stream.Send(&Counter{Counter: (*val).Counter + 1})
+		}
+	}
+}
+
+func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
+	log.Println("Received get user todos request")
+	for {
+		message, err := stream.Recv()
+		if err == io.EOF {
+			log.Println("Finished get user todos request")
+			return nil
+		}
+		if err != nil {
+			log.Printf("Error receiving from client %s", err)
+			return err
+		}
+		log.Println("Received", message)
+		userID := message.UserID
+		select {
+		case <-time.NewTicker(time.Second).C:
+			response := GetUserTodosResponse{Items: make([]*TodoItem, 0)}
+			for i := 0; i < len(todos); i++ {
+				if todos[i].UserID == userID {
+					response.Items = append(response.Items, &todos[i])
+				}
+			}
+			log.Println("Sending", response)
+			stream.Send(&response)
 		}
 	}
 }

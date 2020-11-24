@@ -21,6 +21,7 @@ type TodoServiceClient interface {
 	GetAllTodos(ctx context.Context, in *NoParams, opts ...grpc.CallOption) (*GetAllTodosResponse, error)
 	GetAllTodosStreaming(ctx context.Context, in *NoParams, opts ...grpc.CallOption) (TodoService_GetAllTodosStreamingClient, error)
 	CountingTest(ctx context.Context, opts ...grpc.CallOption) (TodoService_CountingTestClient, error)
+	GetUserTodos(ctx context.Context, opts ...grpc.CallOption) (TodoService_GetUserTodosClient, error)
 }
 
 type todoServiceClient struct {
@@ -112,6 +113,37 @@ func (x *todoServiceCountingTestClient) Recv() (*Counter, error) {
 	return m, nil
 }
 
+func (c *todoServiceClient) GetUserTodos(ctx context.Context, opts ...grpc.CallOption) (TodoService_GetUserTodosClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_TodoService_serviceDesc.Streams[2], "/todo.TodoService/GetUserTodos", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &todoServiceGetUserTodosClient{stream}
+	return x, nil
+}
+
+type TodoService_GetUserTodosClient interface {
+	Send(*GetUserTodosRequest) error
+	Recv() (*GetUserTodosResponse, error)
+	grpc.ClientStream
+}
+
+type todoServiceGetUserTodosClient struct {
+	grpc.ClientStream
+}
+
+func (x *todoServiceGetUserTodosClient) Send(m *GetUserTodosRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *todoServiceGetUserTodosClient) Recv() (*GetUserTodosResponse, error) {
+	m := new(GetUserTodosResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // TodoServiceServer is the server API for TodoService service.
 // All implementations must embed UnimplementedTodoServiceServer
 // for forward compatibility
@@ -120,6 +152,7 @@ type TodoServiceServer interface {
 	GetAllTodos(context.Context, *NoParams) (*GetAllTodosResponse, error)
 	GetAllTodosStreaming(*NoParams, TodoService_GetAllTodosStreamingServer) error
 	CountingTest(TodoService_CountingTestServer) error
+	GetUserTodos(TodoService_GetUserTodosServer) error
 	mustEmbedUnimplementedTodoServiceServer()
 }
 
@@ -138,6 +171,9 @@ func (UnimplementedTodoServiceServer) GetAllTodosStreaming(*NoParams, TodoServic
 }
 func (UnimplementedTodoServiceServer) CountingTest(TodoService_CountingTestServer) error {
 	return status.Errorf(codes.Unimplemented, "method CountingTest not implemented")
+}
+func (UnimplementedTodoServiceServer) GetUserTodos(TodoService_GetUserTodosServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetUserTodos not implemented")
 }
 func (UnimplementedTodoServiceServer) mustEmbedUnimplementedTodoServiceServer() {}
 
@@ -235,6 +271,32 @@ func (x *todoServiceCountingTestServer) Recv() (*Counter, error) {
 	return m, nil
 }
 
+func _TodoService_GetUserTodos_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(TodoServiceServer).GetUserTodos(&todoServiceGetUserTodosServer{stream})
+}
+
+type TodoService_GetUserTodosServer interface {
+	Send(*GetUserTodosResponse) error
+	Recv() (*GetUserTodosRequest, error)
+	grpc.ServerStream
+}
+
+type todoServiceGetUserTodosServer struct {
+	grpc.ServerStream
+}
+
+func (x *todoServiceGetUserTodosServer) Send(m *GetUserTodosResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *todoServiceGetUserTodosServer) Recv() (*GetUserTodosRequest, error) {
+	m := new(GetUserTodosRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _TodoService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "todo.TodoService",
 	HandlerType: (*TodoServiceServer)(nil),
@@ -257,6 +319,12 @@ var _TodoService_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "CountingTest",
 			Handler:       _TodoService_CountingTest_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "GetUserTodos",
+			Handler:       _TodoService_GetUserTodos_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

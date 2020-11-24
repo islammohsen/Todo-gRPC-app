@@ -3,8 +3,9 @@ syntax = "proto3";
 package todo;
 
 message TodoItem{
-    int32 id = 1;
-    string todo = 2;
+    int32 todoID = 1;
+    int32 userID = 2;
+    string todo = 3;
 }
 
 message AddTodoRequest{
@@ -27,9 +28,18 @@ message Counter {
     int32 counter = 1;
 }
 
+message GetUserTodosRequest{
+    int32 userID = 1;
+}
+
+message GetUserTodosResponse{
+    repeated TodoItem items = 1;
+}
+
 service TodoService {
     rpc AddTodo (AddTodoRequest) returns (AddTodoResponse);
     rpc GetAllTodos (NoParams) returns (GetAllTodosResponse);
     rpc GetAllTodosStreaming(NoParams) returns (stream TodoItem);
-    rpc CountingTest(stream Counter) returns (stream Counter); 
+    rpc CountingTest(stream Counter) returns (stream Counter);
+    rpc GetUserTodos(stream GetUserTodosRequest) returns (stream GetUserTodosResponse);
 }
