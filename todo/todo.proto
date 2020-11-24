@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package todo;
+
+message TodoItem{
+    int32 id = 1;
+    string todo = 2;
+}
+
+message AddTodoRequest{
+    TodoItem item = 1;
+}
+
+message AddTodoResponse{
+    TodoItem item = 1;
+}
+
+message GetAllTodosResponse{
+    repeated TodoItem items = 1;
+}
+
+message NoParams {
+
+}
+
+service TodoService {
+    rpc AddTodo (AddTodoRequest) returns (AddTodoResponse);
+    rpc GetAllTodos (NoParams) returns (GetAllTodosResponse);
+    rpc GetAllTodosStreaming(NoParams) returns (stream TodoItem);
+}
