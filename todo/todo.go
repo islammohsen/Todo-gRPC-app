@@ -4,11 +4,13 @@ import (
 	context "context"
 	"io"
 	"log"
+	sync "sync"
 	"time"
 )
 
 type Server struct {
 	Todos []*TodoItem
+	mu    sync.Mutex
 }
 
 func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
@@ -16,22 +18,27 @@ func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
 func (s *Server) AddTodo(ctx context.Context, message *AddTodoRequest) (*AddTodoResponse, error) {
 	log.Printf("Received : %v", message)
 	item := message.GetItem()
+	s.mu.Lock()
 	item.TodoID = int32(len(s.Todos) + 1)
 	s.Todos = append(s.Todos, item)
+	s.mu.Unlock()
 	return &AddTodoResponse{Item: item}, nil
 }
 
 func (s *Server) GetAllTodos(ctx context.Context, message *NoParams) (*GetAllTodosResponse, error) {
 	log.Printf("Received Get all todos request")
 	response := GetAllTodosResponse{Items: make([]*TodoItem, 0)}
+	s.mu.Lock()
 	for _, todo := range s.Todos {
 		response.Items = append(response.Items, todo)
 	}
+	s.mu.Unlock()
 	return &response, nil
 }
 
 func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetAllTodosStreamingServer) error {
 	log.Printf("Received Get all todos streaming request")
+	s.mu.Lock()
 	for _, todo := range s.Todos {
 		select {
 		case <-time.NewTicker(time.Second).C:
@@ -41,6 +48,7 @@ func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetA
 			}
 		}
 	}
+	s.mu.Unlock()
 	return nil
 }
 
@@ -82,11 +90,13 @@ func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 		select {
 		case <-time.NewTicker(time.Second).C:
 			response := &GetUserTodosResponse{Items: make([]*TodoItem, 0)}
+			s.mu.Lock()
 			for _, todo := range s.Todos {
 				if todo.UserID == userID {
 					response.Items = append(response.Items, todo)
 				}
 			}
+			s.mu.Unlock()
 			log.Println("Sending", response)
 			stream.Send(response)
 		}
