@@ -56,7 +56,6 @@ func main() {
 		log.Fatalf("You must specify arguments")
 		return
 	}
-	s := strings.Join(os.Args[1:], " ")
 
 	//init connection
 	conn, err := grpc.Dial(":9000", grpc.WithInsecure())
@@ -69,11 +68,22 @@ func main() {
 	todoService := todo.NewTodoServiceClient(conn)
 
 	//add todo
-	addTodo(todoService, s)
+	if os.Args[1] == "!add" {
+		if len(os.Args) <= 2 {
+			log.Fatalf("Invalid arguments")
+			return
+		}
+		s := strings.Join(os.Args[2:], " ")
+		addTodo(todoService, s)
+	}
 
 	//get all todos
-	getAllTodos(todoService)
+	if os.Args[1] == "!get_all" {
+		getAllTodos(todoService)
+	}
 
 	//get all todos streaming
-	getAllTodosStreaming(todoService)
+	if os.Args[1] == "!get_all_streaming" {
+		getAllTodosStreaming(todoService)
+	}
 }
