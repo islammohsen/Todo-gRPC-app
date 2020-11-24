@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 	"todo-app/todo"
 
 	"google.golang.org/grpc"
@@ -49,6 +50,33 @@ func getAllTodosStreaming(todoService todo.TodoServiceClient) {
 	}
 }
 
+func testingCounter(todoService todo.TodoServiceClient) {
+	stream, err := todoService.CountingTest(context.Background(), grpc.EmptyCallOption{})
+	if err != nil {
+		log.Fatalf("Error couldn't init stream %s", err)
+	}
+	var counter int32 = 0
+	for i := 0; i < 10; i++ {
+		select {
+		case <-time.NewTicker(time.Second).C:
+			log.Println("Sending", counter+1)
+			stream.Send(&todo.Counter{Counter: counter + 1})
+			response, err := stream.Recv()
+			if err != nil {
+				log.Fatalf("Error in receiving")
+				return
+			}
+			counter = response.Counter
+			log.Println("Received", counter)
+		}
+	}
+	log.Println("Closing client")
+	if err := stream.CloseSend(); err != nil {
+		log.Fatalf("Failed to close")
+	}
+	log.Println("Closed")
+}
+
 func main() {
 
 	//get arguments
@@ -85,5 +113,10 @@ func main() {
 	//get all todos streaming
 	if os.Args[1] == "!get_all_streaming" {
 		getAllTodosStreaming(todoService)
+	}
+
+	//testing counter
+	if os.Args[1] == "!counter" {
+		testingCounter(todoService)
 	}
 }

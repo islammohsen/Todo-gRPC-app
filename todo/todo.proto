@@ -23,8 +23,13 @@ message NoParams {
 
 }
 
+message Counter {
+    int32 counter = 1;
+}
+
 service TodoService {
     rpc AddTodo (AddTodoRequest) returns (AddTodoResponse);
     rpc GetAllTodos (NoParams) returns (GetAllTodosResponse);
     rpc GetAllTodosStreaming(NoParams) returns (stream TodoItem);
+    rpc CountingTest(stream Counter) returns (stream Counter); 
 }
