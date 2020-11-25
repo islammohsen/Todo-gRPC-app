@@ -12,8 +12,16 @@ func main() {
 	lis, err := net.Listen("tcp", ":9000")
 	if err != nil {
 		log.Printf("Failed to listen to port 9009 : %v", err)
+		return
 	}
-	s := todo.Server{Todos: make([]*todo.TodoItem, 0)}
+
+	database, err := todo.GetDB()
+	if err != nil {
+		log.Printf("Error when connecting to database : %v", err)
+		return
+	}
+	s := todo.Server{Database: database}
+
 	grpcServer := grpc.NewServer()
 	todo.RegisterTodoServiceServer(grpcServer, &s)
 

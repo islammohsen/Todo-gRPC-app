@@ -1,45 +1,52 @@
 package todo
 
 import (
-	context "context"
+	"context"
 	"io"
 	"log"
-	sync "sync"
 	"time"
 )
 
+//Server implementing TodoSeviceServer
 type Server struct {
-	Todos []*TodoItem
-	mu    sync.Mutex
+	Database *Database
 }
 
-func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
-
+//AddTodo function to add todoitem to database
 func (s *Server) AddTodo(ctx context.Context, message *AddTodoRequest) (*AddTodoResponse, error) {
 	log.Printf("Received : %v", message)
 	item := message.GetItem()
-	s.mu.Lock()
-	item.TodoID = int32(len(s.Todos) + 1)
-	s.Todos = append(s.Todos, item)
-	s.mu.Unlock()
+	id, err := s.Database.InsertTodoItem(item)
+	if err != nil {
+		return nil, err
+	}
+	item.TodoID = int32(id)
 	return &AddTodoResponse{Item: item}, nil
 }
 
+//GetAllTodos function to get all todos from database
 func (s *Server) GetAllTodos(ctx context.Context, message *NoParams) (*GetAllTodosResponse, error) {
 	log.Printf("Received Get all todos request")
 	response := GetAllTodosResponse{Items: make([]*TodoItem, 0)}
-	s.mu.Lock()
-	for _, todo := range s.Todos {
+	todos, err := s.Database.GetAllTodos()
+	if err != nil {
+		return nil, err
+	}
+	for _, todo := range todos {
 		response.Items = append(response.Items, todo)
 	}
-	s.mu.Unlock()
 	return &response, nil
 }
 
+//GetAllTodosStreaming function to get all todos from database
+//server side streaming
 func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetAllTodosStreamingServer) error {
 	log.Printf("Received Get all todos streaming request")
-	s.mu.Lock()
-	for _, todo := range s.Todos {
+	todos, err := s.Database.GetAllTodos()
+	if err != nil {
+		return err
+	}
+	for _, todo := range todos {
 		select {
 		case <-time.NewTicker(time.Second).C:
 			err := stream.Send(todo)
@@ -48,10 +55,10 @@ func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetA
 			}
 		}
 	}
-	s.mu.Unlock()
 	return nil
 }
 
+//CountingTest function to test bi-directional server client streaming
 func (s *Server) CountingTest(stream TodoService_CountingTestServer) error {
 	log.Println("Start counting")
 	for {
@@ -73,6 +80,7 @@ func (s *Server) CountingTest(stream TodoService_CountingTestServer) error {
 	}
 }
 
+//GetUserTodos function to get a stream of user ids and return a stream of todoitems
 func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 	log.Println("Received get user todos request")
 	for {
@@ -89,16 +97,16 @@ func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 		userID := message.UserID
 		select {
 		case <-time.NewTicker(time.Second).C:
-			response := &GetUserTodosResponse{Items: make([]*TodoItem, 0)}
-			s.mu.Lock()
-			for _, todo := range s.Todos {
-				if todo.UserID == userID {
-					response.Items = append(response.Items, todo)
-				}
+
+			todos, err := s.Database.GetUserTodos(int(userID))
+			if err != nil {
+				return err
 			}
-			s.mu.Unlock()
+			response := &GetUserTodosResponse{Items: todos}
 			log.Println("Sending", response)
 			stream.Send(response)
 		}
 	}
 }
+
+func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
