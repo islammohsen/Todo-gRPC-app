@@ -117,6 +117,17 @@ func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userI
 	return todos
 }
 
+func deleteUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userID int) {
+	message := &todo.DeleteUserTodosRequest{UserID: int32(userID)}
+	_, err := todoService.DeleteUserTodos(ctx, message)
+
+	if err != nil {
+		log.Printf("Error when calling add todo %s", err)
+	}
+
+	log.Printf("Deleted")
+}
+
 func main() {
 
 	//get arguments
@@ -155,20 +166,25 @@ func main() {
 	}
 
 	//get all todos
+	//command : !get_all
 	if os.Args[1] == "!get_all" {
 		getAllTodos(ctx, todoService)
 	}
 
 	//get all todos streaming
+	//command : !get_all_streaming
 	if os.Args[1] == "!get_all_streaming" {
 		getAllTodosStreaming(ctx, todoService)
 	}
 
 	//testing counter
+	//command : !counter
 	if os.Args[1] == "!counter" {
 		testingCounter(ctx, todoService)
 	}
 
+	//get_user_todos
+	//command : !get_user_todos
 	if os.Args[1] == "!get_user_todos" {
 		if len(os.Args) <= 2 {
 			log.Println("Invalid arguments")
@@ -188,5 +204,20 @@ func main() {
 		for _, todo := range todos {
 			log.Println(todo)
 		}
+	}
+
+	//delete user todos
+	//command : !delete userID
+	if os.Args[1] == "!delete" {
+		if len(os.Args) <= 2 {
+			log.Println("Invalid arguments")
+			return
+		}
+		userID, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			log.Println("Invalid arguments")
+			return
+		}
+		deleteUserTodos(ctx, todoService, userID)
 	}
 }

@@ -27,7 +27,6 @@ func (this *Database) InsertTodoItem(item *TodoItem) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	id, err := result.LastInsertId()
 	return int(id), err
 }
@@ -66,4 +65,10 @@ func (this *Database) GetUserTodos(userID int) ([]*TodoItem, error) {
 	}
 
 	return extractTodos(rows)
+}
+
+func (this *Database) DeleteUserTodos(userID int) error {
+	const query = "DELETE FROM todos WHERE UserID = ?"
+	_, err := this.db.Exec(query, userID)
+	return err
 }

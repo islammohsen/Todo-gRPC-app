@@ -12,6 +12,8 @@ type Server struct {
 	Database *Database
 }
 
+func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
+
 //AddTodo function to add todoitem to database
 func (s *Server) AddTodo(ctx context.Context, message *AddTodoRequest) (*AddTodoResponse, error) {
 	log.Printf("Received : %v", message)
@@ -109,4 +111,11 @@ func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 	}
 }
 
-func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
+func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRequest) (*DeleteUserTodosResponse, error) {
+	userID := message.UserID
+	err := s.Database.DeleteUserTodos(int(userID))
+	if err != nil {
+		return nil, err
+	}
+	return &DeleteUserTodosResponse{}, nil
+}

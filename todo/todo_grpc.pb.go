@@ -22,6 +22,7 @@ type TodoServiceClient interface {
 	GetAllTodosStreaming(ctx context.Context, in *NoParams, opts ...grpc.CallOption) (TodoService_GetAllTodosStreamingClient, error)
 	CountingTest(ctx context.Context, opts ...grpc.CallOption) (TodoService_CountingTestClient, error)
 	GetUserTodos(ctx context.Context, opts ...grpc.CallOption) (TodoService_GetUserTodosClient, error)
+	DeleteUserTodos(ctx context.Context, in *DeleteUserTodosRequest, opts ...grpc.CallOption) (*DeleteUserTodosResponse, error)
 }
 
 type todoServiceClient struct {
@@ -144,6 +145,15 @@ func (x *todoServiceGetUserTodosClient) Recv() (*GetUserTodosResponse, error) {
 	return m, nil
 }
 
+func (c *todoServiceClient) DeleteUserTodos(ctx context.Context, in *DeleteUserTodosRequest, opts ...grpc.CallOption) (*DeleteUserTodosResponse, error) {
+	out := new(DeleteUserTodosResponse)
+	err := c.cc.Invoke(ctx, "/todo.TodoService/DeleteUserTodos", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TodoServiceServer is the server API for TodoService service.
 // All implementations must embed UnimplementedTodoServiceServer
 // for forward compatibility
@@ -153,6 +163,7 @@ type TodoServiceServer interface {
 	GetAllTodosStreaming(*NoParams, TodoService_GetAllTodosStreamingServer) error
 	CountingTest(TodoService_CountingTestServer) error
 	GetUserTodos(TodoService_GetUserTodosServer) error
+	DeleteUserTodos(context.Context, *DeleteUserTodosRequest) (*DeleteUserTodosResponse, error)
 	mustEmbedUnimplementedTodoServiceServer()
 }
 
@@ -174,6 +185,9 @@ func (UnimplementedTodoServiceServer) CountingTest(TodoService_CountingTestServe
 }
 func (UnimplementedTodoServiceServer) GetUserTodos(TodoService_GetUserTodosServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetUserTodos not implemented")
+}
+func (UnimplementedTodoServiceServer) DeleteUserTodos(context.Context, *DeleteUserTodosRequest) (*DeleteUserTodosResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteUserTodos not implemented")
 }
 func (UnimplementedTodoServiceServer) mustEmbedUnimplementedTodoServiceServer() {}
 
@@ -297,6 +311,24 @@ func (x *todoServiceGetUserTodosServer) Recv() (*GetUserTodosRequest, error) {
 	return m, nil
 }
 
+func _TodoService_DeleteUserTodos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteUserTodosRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TodoServiceServer).DeleteUserTodos(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/todo.TodoService/DeleteUserTodos",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TodoServiceServer).DeleteUserTodos(ctx, req.(*DeleteUserTodosRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _TodoService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "todo.TodoService",
 	HandlerType: (*TodoServiceServer)(nil),
@@ -308,6 +340,10 @@ var _TodoService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAllTodos",
 			Handler:    _TodoService_GetAllTodos_Handler,
+		},
+		{
+			MethodName: "DeleteUserTodos",
+			Handler:    _TodoService_DeleteUserTodos_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
