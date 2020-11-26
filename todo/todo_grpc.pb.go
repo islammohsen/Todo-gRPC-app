@@ -23,6 +23,7 @@ type TodoServiceClient interface {
 	CountingTest(ctx context.Context, opts ...grpc.CallOption) (TodoService_CountingTestClient, error)
 	GetUserTodos(ctx context.Context, opts ...grpc.CallOption) (TodoService_GetUserTodosClient, error)
 	DeleteUserTodos(ctx context.Context, in *DeleteUserTodosRequest, opts ...grpc.CallOption) (*DeleteUserTodosResponse, error)
+	GetUserTodoItemsWithHash(ctx context.Context, in *GetUserTodoItemsWithHashRequest, opts ...grpc.CallOption) (*GetUserTodoItemsWithHashResponse, error)
 }
 
 type todoServiceClient struct {
@@ -154,6 +155,15 @@ func (c *todoServiceClient) DeleteUserTodos(ctx context.Context, in *DeleteUserT
 	return out, nil
 }
 
+func (c *todoServiceClient) GetUserTodoItemsWithHash(ctx context.Context, in *GetUserTodoItemsWithHashRequest, opts ...grpc.CallOption) (*GetUserTodoItemsWithHashResponse, error) {
+	out := new(GetUserTodoItemsWithHashResponse)
+	err := c.cc.Invoke(ctx, "/todo.TodoService/GetUserTodoItemsWithHash", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TodoServiceServer is the server API for TodoService service.
 // All implementations must embed UnimplementedTodoServiceServer
 // for forward compatibility
@@ -164,6 +174,7 @@ type TodoServiceServer interface {
 	CountingTest(TodoService_CountingTestServer) error
 	GetUserTodos(TodoService_GetUserTodosServer) error
 	DeleteUserTodos(context.Context, *DeleteUserTodosRequest) (*DeleteUserTodosResponse, error)
+	GetUserTodoItemsWithHash(context.Context, *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error)
 	mustEmbedUnimplementedTodoServiceServer()
 }
 
@@ -188,6 +199,9 @@ func (UnimplementedTodoServiceServer) GetUserTodos(TodoService_GetUserTodosServe
 }
 func (UnimplementedTodoServiceServer) DeleteUserTodos(context.Context, *DeleteUserTodosRequest) (*DeleteUserTodosResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUserTodos not implemented")
+}
+func (UnimplementedTodoServiceServer) GetUserTodoItemsWithHash(context.Context, *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserTodoItemsWithHash not implemented")
 }
 func (UnimplementedTodoServiceServer) mustEmbedUnimplementedTodoServiceServer() {}
 
@@ -329,6 +343,24 @@ func _TodoService_DeleteUserTodos_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TodoService_GetUserTodoItemsWithHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserTodoItemsWithHashRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TodoServiceServer).GetUserTodoItemsWithHash(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/todo.TodoService/GetUserTodoItemsWithHash",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TodoServiceServer).GetUserTodoItemsWithHash(ctx, req.(*GetUserTodoItemsWithHashRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _TodoService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "todo.TodoService",
 	HandlerType: (*TodoServiceServer)(nil),
@@ -344,6 +376,10 @@ var _TodoService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteUserTodos",
 			Handler:    _TodoService_DeleteUserTodos_Handler,
+		},
+		{
+			MethodName: "GetUserTodoItemsWithHash",
+			Handler:    _TodoService_GetUserTodoItemsWithHash_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

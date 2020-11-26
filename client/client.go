@@ -128,6 +128,20 @@ func deleteUserTodos(ctx context.Context, todoService todo.TodoServiceClient, us
 	log.Printf("Deleted")
 }
 
+func getUserTodosWithHash(ctx context.Context, todoService todo.TodoServiceClient, userID int, timeOut time.Duration) {
+	message := &todo.GetUserTodoItemsWithHashRequest{UserID: int32(userID)}
+	childContext, cancel := context.WithTimeout(ctx, timeOut)
+	defer cancel()
+	response, err := todoService.GetUserTodoItemsWithHash(childContext, message)
+	if err != nil {
+		log.Printf("Error %s", err)
+		return
+	}
+	for _, todo := range response.Items {
+		log.Println("Response ", todo)
+	}
+}
+
 func main() {
 
 	//get arguments
@@ -219,5 +233,23 @@ func main() {
 			return
 		}
 		deleteUserTodos(ctx, todoService, userID)
+	}
+
+	if os.Args[1] == "!get_user_todos_hash" {
+		if len(os.Args) < 4 {
+			log.Println("Invalid arguments")
+			return
+		}
+		userID, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			log.Println("Invalid arguments")
+			return
+		}
+		timeOut, err := strconv.Atoi(os.Args[3])
+		if err != nil {
+			log.Println("Invalid arguments")
+			return
+		}
+		getUserTodosWithHash(ctx, todoService, userID, time.Millisecond*time.Duration(timeOut))
 	}
 }

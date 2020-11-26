@@ -44,6 +44,19 @@ message DeleteUserTodosResponse{
 
 }
 
+message TodoItemWithHash {
+    TodoItem item = 1;
+    int32 hash = 2;
+}
+
+message GetUserTodoItemsWithHashRequest {
+    int32 userID = 1;
+}
+
+message GetUserTodoItemsWithHashResponse {
+    repeated TodoItemWithHash items = 1;
+}
+
 service TodoService {
     rpc AddTodo (AddTodoRequest) returns (AddTodoResponse);
     rpc GetAllTodos (NoParams) returns (GetAllTodosResponse);
@@ -51,4 +64,5 @@ service TodoService {
     rpc CountingTest(stream Counter) returns (stream Counter);
     rpc GetUserTodos(stream GetUserTodosRequest) returns (stream GetUserTodosResponse);
     rpc DeleteUserTodos(DeleteUserTodosRequest) returns(DeleteUserTodosResponse);
+    rpc GetUserTodoItemsWithHash(GetUserTodoItemsWithHashRequest) returns(GetUserTodoItemsWithHashResponse);
 }

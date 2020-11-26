@@ -2,8 +2,10 @@ package todo
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
+	sync "sync"
 	"time"
 )
 
@@ -118,4 +120,44 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 		return nil, err
 	}
 	return &DeleteUserTodosResponse{}, nil
+}
+
+func computeTodoHash(ctx context.Context, wg *sync.WaitGroup, item *TodoItemWithHash) {
+	defer wg.Done()
+	select {
+	case <-time.After(500 * time.Millisecond):
+		item.Hash = (item.Item.TodoID + item.Item.UserID) % 291391
+	//context timed out or canceld
+	case <-ctx.Done():
+	}
+}
+
+func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
+
+	log.Println("Received get user todo items with hash request", message)
+
+	userID := message.UserID
+	todos, err := s.Database.GetUserTodos(int(userID))
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserTodoItemsWithHashResponse{}
+	wg := &sync.WaitGroup{}
+
+	for _, todo := range todos {
+		item := &TodoItemWithHash{Item: todo}
+		response.Items = append(response.Items, item)
+		wg.Add(1)
+		go computeTodoHash(ctx, wg, item)
+	}
+
+	wg.Wait()
+
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("Timed out")
+	default:
+		return response, nil
+	}
 }
