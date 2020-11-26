@@ -122,13 +122,15 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 	return &DeleteUserTodosResponse{}, nil
 }
 
-func computeTodoHash(ctx context.Context, wg *sync.WaitGroup, item *TodoItemWithHash) {
-	defer wg.Done()
+func computeTodoHash(ctx context.Context, item *TodoItem) (*TodoItemWithHash, error) {
 	select {
 	case <-time.After(500 * time.Millisecond):
-		item.Hash = (item.Item.TodoID + item.Item.UserID) % 291391
+		hashedItem := &TodoItemWithHash{Item: item}
+		hashedItem.Hash = (item.TodoID + item.UserID) % 291391
+		return hashedItem, nil
 	//context timed out or canceld
 	case <-ctx.Done():
+		return nil, errors.New("Canceld or Timed out")
 	}
 }
 
@@ -144,12 +146,29 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 
 	response := &GetUserTodoItemsWithHashResponse{}
 	wg := &sync.WaitGroup{}
+	mu := sync.Mutex{}
+	childContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var hashingError error
 
 	for _, todo := range todos {
-		item := &TodoItemWithHash{Item: todo}
-		response.Items = append(response.Items, item)
 		wg.Add(1)
-		go computeTodoHash(ctx, wg, item)
+		go func(item *TodoItem) {
+			defer wg.Done()
+			hashedTodo, err := computeTodoHash(childContext, item)
+			if err != nil {
+				mu.Lock()
+				if hashingError == nil {
+					hashingError = err
+				}
+				mu.Unlock()
+				cancel()
+			} else {
+				mu.Lock()
+				response.Items = append(response.Items, hashedTodo)
+				mu.Unlock()
+			}
+		}(todo)
 	}
 
 	wg.Wait()
@@ -157,6 +176,8 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 	select {
 	case <-ctx.Done():
 		return nil, errors.New("Timed out")
+	case <-childContext.Done():
+		return nil, hashingError
 	default:
 		return response, nil
 	}
