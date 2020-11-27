@@ -127,18 +127,17 @@ func TestInsertTodoItem(t *testing.T) {
 		for _, todo := range tc.input {
 			id, err := database.InsertTodoItem(todo)
 
-			if tc.wantErr {
-				if err == nil {
-					t.Errorf("[%q]: MyFunc() got success, want an error", tc.desc)
-				}
-				continue
-			}
-
 			if err != nil {
 				t.Errorf("[%q]: MyFunc() got error %v, want success", tc.desc, err)
 			}
 
 			got = append(got, id)
+		}
+
+		//want error but no input produced error
+		if tc.wantErr {
+			t.Errorf("[%q]: MyFunc() got success, want an error", tc.desc)
+			continue
 		}
 
 		if diff := cmp.Diff(tc.wantRes, got); diff != "" {
