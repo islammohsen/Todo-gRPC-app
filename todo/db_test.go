@@ -142,7 +142,7 @@ func TestInsertTodoItem(t *testing.T) {
 			if err != nil {
 				gotError = true
 				if tc.wantErr == false {
-					t.Errorf("[%q]: MyFunc() got error %v, want success", tc.desc, err)
+					t.Errorf("[%q]: InsertTodoItem() got error %v, want success", tc.desc, err)
 					skipTest = true
 					break
 				}
@@ -158,37 +158,87 @@ func TestInsertTodoItem(t *testing.T) {
 
 		//want error but no input produced error
 		if tc.wantErr && gotError == false {
-			t.Errorf("[%q]: MyFunc() got success, want an error", tc.desc)
+			t.Errorf("[%q]: MyFInsertTodoItemunc() got success, want an error", tc.desc)
 			continue
 		}
 
 		if diff := cmp.Diff(tc.wantRes, got); diff != "" {
-			t.Errorf("[%q]: MyFunc() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+			t.Errorf("[%q]: InsertTodoItem() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 		}
 	}
 }
 
 //TestDeleteUserTodos test deleting user todos
 func TestDeleteUserTodos(t *testing.T) {
-
-	//Truncate database
-	err := database.Truncate()
-	require.NoError(t, err)
-
-	//create new todos
-	todo := createRandomTodo(t)
-	for i := 0; i < 9; i++ {
-		createUserRanomTodo(t, int(todo.UserID))
+	testData := []struct {
+		desc    string
+		env     []*TodoItem
+		input   int
+		wantErr bool
+	}{
+		{
+			desc: "no todos for user",
+			env: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			},
+			input:   1,
+			wantErr: false,
+		},
+		{
+			desc: "one todo for user",
+			env: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			},
+			input:   1,
+			wantErr: false,
+		},
+		{
+			desc: "multiple todo for user",
+			env: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			},
+			input:   1,
+			wantErr: false,
+		},
 	}
 
-	//delete user created todo
-	err = database.DeleteUserTodos(int(todo.UserID))
-	require.NoError(t, err)
+	for _, tc := range testData {
 
-	//check user todos is empty
-	userTodos, err := database.GetUserTodos(int(todo.UserID))
-	require.NoError(t, err)
-	require.Equal(t, len(userTodos), 0)
+		setup(t, tc.env)
+
+		err := database.DeleteUserTodos(tc.input)
+
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("[%q]: DeleteUserTodos() got success, want an error", tc.desc)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("[%q]: DeleteUserTodos() got error %v, want success", tc.desc, err)
+		}
+
+		todos, err := database.GetUserTodos(tc.input)
+
+		//Error in get user todos
+		if err != nil {
+			t.Errorf("[%q]: error in getting user todos (external function)", tc.desc)
+		}
+
+		if len(todos) != 0 {
+			t.Errorf("[%q]: Expected all user todos to be deleted", tc.desc)
+		}
+	}
 }
 
 //TestGetUserTodos checks get user todos
