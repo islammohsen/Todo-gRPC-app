@@ -56,6 +56,7 @@ func setup(t *testing.T, initialTodos []*TodoItem) {
 }
 
 //TestInsertTodoItem test inserting todo to database
+//Uses multiple inputs per test case to test the sequential behaviour of insertion(generated ids should also be sequential)
 func TestInsertTodoItem(t *testing.T) {
 	testData := []struct {
 		desc    string
@@ -122,20 +123,41 @@ func TestInsertTodoItem(t *testing.T) {
 		},
 	}
 	for _, tc := range testData {
+
+		//setting up enviroment
 		setup(t, tc.env)
-		got := []int{}
+
+		//represent the Results
+		var got []int
+
+		//boolean should we skip test or not
+		skipTest := false
+
+		gotError := false
+
 		for _, todo := range tc.input {
+
 			id, err := database.InsertTodoItem(todo)
 
 			if err != nil {
-				t.Errorf("[%q]: MyFunc() got error %v, want success", tc.desc, err)
+				gotError = true
+				if tc.wantErr == false {
+					t.Errorf("[%q]: MyFunc() got error %v, want success", tc.desc, err)
+					skipTest = true
+					break
+				}
 			}
 
 			got = append(got, id)
 		}
 
+		//Error occured so we should skip test
+		if skipTest == true {
+			continue
+		}
+
 		//want error but no input produced error
-		if tc.wantErr {
+		if tc.wantErr && gotError == false {
 			t.Errorf("[%q]: MyFunc() got success, want an error", tc.desc)
 			continue
 		}
