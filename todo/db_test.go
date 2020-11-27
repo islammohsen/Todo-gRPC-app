@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 var database *Database
@@ -213,6 +214,7 @@ func TestDeleteUserTodos(t *testing.T) {
 		//Error in get user todos
 		if err != nil {
 			t.Errorf("[%q]: error in getting user todos (external function)", tc.desc)
+			continue
 		}
 
 		if len(todos) != 0 {
@@ -293,27 +295,8 @@ func TestGetUserTodos(t *testing.T) {
 			t.Errorf("[%q]: GetUserTodos() got error %v, want success", tc.desc, err)
 		}
 
-		if cmp.Equal(len(tc.wantRes), len(got)) == false {
-			t.Errorf("[%q]: GetUserTodos() returned unexpected diff: len wantRes %d, len got %d", tc.desc, len(tc.wantRes), len(got))
-			continue
-		}
-
-		for idx := range tc.wantRes {
-			if cmp.Equal(tc.wantRes[idx].TodoID, got[idx].TodoID) == false {
-				t.Errorf("[%q]: GetUserTodos() returned unexpected diff todoID: want (%d), got (%d)",
-					tc.desc, tc.wantRes[idx].TodoID, got[idx].TodoID)
-				break
-			}
-			if cmp.Equal(tc.wantRes[idx].UserID, got[idx].UserID) == false {
-				t.Errorf("[%q]: GetUserTodos() returned unexpected diff userID: want (%d), got (%d)",
-					tc.desc, tc.wantRes[idx].UserID, got[idx].UserID)
-				break
-			}
-			if cmp.Equal(tc.wantRes[idx].Todo, got[idx].Todo) == false {
-				t.Errorf("[%q]: GetUserTodos() returned unexpected diff Todo: want (%v), got (%v)",
-					tc.desc, tc.wantRes[idx].Todo, got[idx].Todo)
-				break
-			}
+		if diff := cmp.Diff(tc.wantRes, got, cmpopts.IgnoreUnexported(TodoItem{})); diff != "" {
+			t.Errorf("[%q]: InsertTodoItem() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 		}
 	}
 }
@@ -382,27 +365,8 @@ func TestGetAllTodos(t *testing.T) {
 			t.Errorf("[%q]: GetUserTodos() got error %v, want success", tc.desc, err)
 		}
 
-		if cmp.Equal(len(tc.wantRes), len(got)) == false {
-			t.Errorf("[%q]: GetUserTodos() returned unexpected diff: len wantRes %d, len got %d", tc.desc, len(tc.wantRes), len(got))
-			continue
-		}
-
-		for idx := range tc.wantRes {
-			if cmp.Equal(tc.wantRes[idx].TodoID, got[idx].TodoID) == false {
-				t.Errorf("[%q]: GetUserTodos() returned unexpected diff todoID: want (%d), got (%d)",
-					tc.desc, tc.wantRes[idx].TodoID, got[idx].TodoID)
-				break
-			}
-			if cmp.Equal(tc.wantRes[idx].UserID, got[idx].UserID) == false {
-				t.Errorf("[%q]: GetUserTodos() returned unexpected diff userID: want (%d), got (%d)",
-					tc.desc, tc.wantRes[idx].UserID, got[idx].UserID)
-				break
-			}
-			if cmp.Equal(tc.wantRes[idx].Todo, got[idx].Todo) == false {
-				t.Errorf("[%q]: GetUserTodos() returned unexpected diff Todo: want (%v), got (%v)",
-					tc.desc, tc.wantRes[idx].Todo, got[idx].Todo)
-				break
-			}
+		if diff := cmp.Diff(tc.wantRes, got, cmpopts.IgnoreUnexported(TodoItem{})); diff != "" {
+			t.Errorf("[%q]: GetUserTodos() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 		}
 	}
 }
