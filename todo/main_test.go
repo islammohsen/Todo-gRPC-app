@@ -12,6 +12,7 @@ const dbName = "TodoTestDB"
 
 func TestMain(m *testing.M) {
 	db, err := GetDB(dbName)
+	defer db.db.Close()
 	if err != nil {
 		log.Fatalf("cannot connect to database")
 	}
