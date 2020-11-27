@@ -1,45 +1,25 @@
 package todo
 
 import (
+	"log"
+	"os"
 	"testing"
 
-	"todo-app/util"
-
 	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/require"
 )
 
-const maxUserID = 100
-const maxTodoLength = 20
+var database *Database
 
-//creatRandomTodo insert new Random todo with random user id and todo
-func createRandomTodo(t *testing.T) *TodoItem {
+const dbName = "TodoTestDB"
 
-	Todo := util.RandomString(util.RandomInt(1, maxTodoLength))
-	item := &TodoItem{TodoID: -1, UserID: int32(util.RandomInt(1, maxUserID)), Todo: Todo}
-
-	id, err := database.InsertTodoItem(item)
-	item.TodoID = int32(id)
-
-	require.NoError(t, err)
-	require.NotZero(t, id)
-
-	return item
-}
-
-//creatUserRandomTodo insert new Random todo with todo
-func createUserRanomTodo(t *testing.T, userID int) *TodoItem {
-
-	Todo := util.RandomString(util.RandomInt(1, maxTodoLength))
-	item := &TodoItem{TodoID: -1, UserID: int32(userID), Todo: Todo}
-
-	id, err := database.InsertTodoItem(item)
-	item.TodoID = int32(id)
-
-	require.NoError(t, err)
-	require.NotZero(t, id)
-
-	return item
+func TestMain(m *testing.M) {
+	db, err := GetDB(dbName)
+	defer db.db.Close()
+	if err != nil {
+		log.Fatalf("cannot connect to database")
+	}
+	database = db
+	os.Exit(m.Run())
 }
 
 func setup(t *testing.T, initialTodos []*TodoItem) {
