@@ -10,8 +10,8 @@ type Database struct {
 	db *sql.DB
 }
 
-func GetDB() (*Database, error) {
-	db, err := sql.Open("mysql", "root:pass123@tcp(127.0.0.1:3306)/testdb")
+func GetDB(dbName string) (*Database, error) {
+	db, err := sql.Open("mysql", "root:pass123@tcp(127.0.0.1:3306)/"+dbName)
 
 	if err != nil {
 		return nil, err
@@ -70,5 +70,11 @@ func (this *Database) GetUserTodos(userID int) ([]*TodoItem, error) {
 func (this *Database) DeleteUserTodos(userID int) error {
 	const query = "DELETE FROM todos WHERE UserID = ?"
 	_, err := this.db.Exec(query, userID)
+	return err
+}
+
+func (this *Database) Truncate() error {
+	const query = "DELETE FROM todos"
+	_, err := this.db.Exec(query)
 	return err
 }

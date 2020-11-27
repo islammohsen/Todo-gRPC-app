@@ -50,9 +50,11 @@ func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetA
 	if err != nil {
 		return err
 	}
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for _, todo := range todos {
 		select {
-		case <-time.NewTicker(time.Second).C:
+		case <-ticker.C:
 			err := stream.Send(todo)
 			if err != nil {
 				return err
@@ -65,6 +67,8 @@ func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetA
 //CountingTest function to test bi-directional server client streaming
 func (s *Server) CountingTest(stream TodoService_CountingTestServer) error {
 	log.Println("Start counting")
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		val, err := stream.Recv()
 		if err == io.EOF {
@@ -77,7 +81,7 @@ func (s *Server) CountingTest(stream TodoService_CountingTestServer) error {
 		}
 		log.Println("Received ", val)
 		select {
-		case <-time.NewTicker(time.Second).C:
+		case <-ticker.C:
 			log.Println("Sending ", (*val).Counter+1)
 			stream.Send(&Counter{Counter: (*val).Counter + 1})
 		}
@@ -87,6 +91,8 @@ func (s *Server) CountingTest(stream TodoService_CountingTestServer) error {
 //GetUserTodos function to get a stream of user ids and return a stream of todoitems
 func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 	log.Println("Received get user todos request")
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		message, err := stream.Recv()
 		if err == io.EOF {
@@ -100,7 +106,7 @@ func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 		log.Println("Received", message)
 		userID := message.UserID
 		select {
-		case <-time.NewTicker(time.Second).C:
+		case <-ticker.C:
 
 			todos, err := s.Database.GetUserTodos(int(userID))
 			if err != nil {
@@ -123,8 +129,9 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 }
 
 func computeTodoHash(ctx context.Context, item *TodoItem) (*TodoItemWithHash, error) {
+	const waitingTime = 500 * time.Millisecond
 	select {
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(waitingTime):
 		hashedItem := &TodoItemWithHash{Item: item}
 		hashedItem.Hash = (item.TodoID + item.UserID) % 291391
 		return hashedItem, nil

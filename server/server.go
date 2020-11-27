@@ -15,7 +15,7 @@ func main() {
 		return
 	}
 
-	database, err := todo.GetDB()
+	database, err := todo.GetDB("testdb")
 	if err != nil {
 		log.Printf("Error when connecting to database : %v", err)
 		return
