@@ -5,6 +5,7 @@ import (
 
 	"todo-app/util"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,11 +42,109 @@ func createUserRanomTodo(t *testing.T, userID int) *TodoItem {
 	return item
 }
 
+func setup(t *testing.T, initialTodos []*TodoItem) {
+	err := database.Truncate()
+	if err != nil {
+		t.Errorf("Error in setup database %v", err)
+	}
+	for _, todo := range initialTodos {
+		_, err := database.InsertTodoItem(todo)
+		if err != nil {
+			t.Errorf("Error in setup database %v", err)
+		}
+	}
+}
+
 //TestInsertTodoItem test inserting todo to database
 func TestInsertTodoItem(t *testing.T) {
-	err := database.Truncate()
-	require.NoError(t, err)
-	createRandomTodo(t)
+	testData := []struct {
+		desc    string
+		env     []*TodoItem
+		input   []*TodoItem
+		wantRes []int
+		wantErr bool
+	}{
+		{
+			desc: "empty initial env - one input",
+			env:  []*TodoItem{},
+			input: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+			},
+			wantRes: []int{
+				1,
+			},
+			wantErr: false,
+		},
+		{
+			desc: "empty initial env - multiple input",
+			env:  []*TodoItem{},
+			input: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+			},
+			wantRes: []int{
+				1,
+				2,
+			},
+			wantErr: false,
+		},
+		{
+			desc: "populated initial env - one input",
+			env: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			},
+			input: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+			},
+			wantRes: []int{
+				4,
+			},
+			wantErr: false,
+		},
+		{
+			desc: "populated initial env - multiple input",
+			env: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			},
+			input: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+			},
+			wantRes: []int{
+				4,
+				5,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tc := range testData {
+		setup(t, tc.env)
+		got := []int{}
+		for _, todo := range tc.input {
+			id, err := database.InsertTodoItem(todo)
+
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("[%q]: MyFunc() got success, want an error", tc.desc)
+				}
+				continue
+			}
+
+			if err != nil {
+				t.Errorf("[%q]: MyFunc() got error %v, want success", tc.desc, err)
+			}
+
+			got = append(got, id)
+		}
+
+		if diff := cmp.Diff(tc.wantRes, got); diff != "" {
+			t.Errorf("[%q]: MyFunc() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+		}
+	}
 }
 
 //TestDeleteUserTodos test deleting user todos

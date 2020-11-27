@@ -74,7 +74,7 @@ func (this *Database) DeleteUserTodos(userID int) error {
 }
 
 func (this *Database) Truncate() error {
-	const query = "DELETE FROM todos"
+	const query = "TRUNCATE TABLE todos;"
 	_, err := this.db.Exec(query)
 	return err
 }
