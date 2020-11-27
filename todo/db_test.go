@@ -341,28 +341,88 @@ func TestGetUserTodos(t *testing.T) {
 //TestGetAllTodos checks geting all todos
 func TestGetAllTodos(t *testing.T) {
 
-	//Truncate database
-	err := database.Truncate()
-	require.NoError(t, err)
-
-	//Create mark map to check all todo ids are unique
-	mark := make(map[int32]*TodoItem)
-
-	//create new todos
-	for i := 0; i < 10; i++ {
-		currentTodo := createRandomTodo(t)
-		require.Empty(t, mark[currentTodo.TodoID])
-		mark[currentTodo.TodoID] = currentTodo
+	testData := []struct {
+		desc    string
+		env     []*TodoItem
+		wantRes []*TodoItem
+		wantErr bool
+	}{
+		{
+			desc:    "No Todos",
+			env:     []*TodoItem{},
+			wantRes: []*TodoItem{},
+			wantErr: false,
+		},
+		{
+			desc: "one user todo",
+			env: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+			},
+			wantRes: []*TodoItem{
+				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+			},
+			wantErr: false,
+		},
+		{
+			desc: "multiple users todos",
+			env: []*TodoItem{
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 3"},
+			},
+			wantRes: []*TodoItem{
+				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: 3, UserID: 2, Todo: "Task 2"},
+				&TodoItem{TodoID: 4, UserID: 1, Todo: "Task 2"},
+				&TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+				&TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			},
+			wantErr: false,
+		},
 	}
 
-	//check todos
-	userTodos, err := database.GetAllTodos()
-	require.NoError(t, err)
-	require.Equal(t, len(userTodos), 10)
-	for _, currentTodo := range userTodos {
-		require.NotEmpty(t, mark[currentTodo.TodoID])
-		require.Equal(t, mark[currentTodo.TodoID].UserID, currentTodo.UserID)
-		require.Equal(t, mark[currentTodo.TodoID].Todo, currentTodo.Todo)
-		delete(mark, currentTodo.TodoID)
+	for _, tc := range testData {
+
+		setup(t, tc.env)
+
+		got, err := database.GetAllTodos()
+
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("[%q]: GetUserTodos() got success, want an error", tc.desc)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("[%q]: GetUserTodos() got error %v, want success", tc.desc, err)
+		}
+
+		if cmp.Equal(len(tc.wantRes), len(got)) == false {
+			t.Errorf("[%q]: GetUserTodos() returned unexpected diff: len wantRes %d, len got %d", tc.desc, len(tc.wantRes), len(got))
+			continue
+		}
+
+		for idx := range tc.wantRes {
+			if cmp.Equal(tc.wantRes[idx].TodoID, got[idx].TodoID) == false {
+				t.Errorf("[%q]: GetUserTodos() returned unexpected diff todoID: want (%d), got (%d)",
+					tc.desc, tc.wantRes[idx].TodoID, got[idx].TodoID)
+				break
+			}
+			if cmp.Equal(tc.wantRes[idx].UserID, got[idx].UserID) == false {
+				t.Errorf("[%q]: GetUserTodos() returned unexpected diff userID: want (%d), got (%d)",
+					tc.desc, tc.wantRes[idx].UserID, got[idx].UserID)
+				break
+			}
+			if cmp.Equal(tc.wantRes[idx].Todo, got[idx].Todo) == false {
+				t.Errorf("[%q]: GetUserTodos() returned unexpected diff Todo: want (%v), got (%v)",
+					tc.desc, tc.wantRes[idx].Todo, got[idx].Todo)
+				break
+			}
+		}
 	}
 }
