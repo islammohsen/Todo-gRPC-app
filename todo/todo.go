@@ -7,11 +7,13 @@ import (
 	"log"
 	sync "sync"
 	"time"
+
+	"todo-app/db"
 )
 
 //Server implementing TodoSeviceServer
 type Server struct {
-	Database *Database
+	Database *db.Database
 }
 
 func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
@@ -20,7 +22,7 @@ func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
 func (s *Server) AddTodo(ctx context.Context, message *AddTodoRequest) (*AddTodoResponse, error) {
 	log.Printf("Received : %v", message)
 	item := message.GetItem()
-	id, err := s.Database.InsertTodoItem(item)
+	id, err := s.Database.InsertTodoItem(toDatabaseTodoItem(item))
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +39,7 @@ func (s *Server) GetAllTodos(ctx context.Context, message *NoParams) (*GetAllTod
 		return nil, err
 	}
 	for _, todo := range todos {
-		response.Items = append(response.Items, todo)
+		response.Items = append(response.Items, toProtoTodoItem(todo))
 	}
 	return &response, nil
 }
@@ -55,37 +57,13 @@ func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetA
 	for _, todo := range todos {
 		select {
 		case <-ticker.C:
-			err := stream.Send(todo)
+			err := stream.Send(toProtoTodoItem(todo))
 			if err != nil {
 				return err
 			}
 		}
 	}
 	return nil
-}
-
-//CountingTest function to test bi-directional server client streaming
-func (s *Server) CountingTest(stream TodoService_CountingTestServer) error {
-	log.Println("Start counting")
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for {
-		val, err := stream.Recv()
-		if err == io.EOF {
-			log.Println("Ended counting")
-			return nil
-		}
-		if err != nil {
-			log.Printf("Error receiving from client %s", err)
-			return err
-		}
-		log.Println("Received ", val)
-		select {
-		case <-ticker.C:
-			log.Println("Sending ", (*val).Counter+1)
-			stream.Send(&Counter{Counter: (*val).Counter + 1})
-		}
-	}
 }
 
 //GetUserTodos function to get a stream of user ids and return a stream of todoitems
@@ -108,9 +86,13 @@ func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 		select {
 		case <-ticker.C:
 
-			todos, err := s.Database.GetUserTodos(int(userID))
+			dbTodos, err := s.Database.GetUserTodos(int(userID))
 			if err != nil {
 				return err
+			}
+			var todos []*TodoItem
+			for _, todo := range dbTodos {
+				todos = append(todos, toProtoTodoItem(todo))
 			}
 			response := &GetUserTodosResponse{Items: todos}
 			log.Println("Sending", response)
@@ -175,7 +157,7 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 				response.Items = append(response.Items, hashedTodo)
 				mu.Unlock()
 			}
-		}(todo)
+		}(toProtoTodoItem(todo))
 	}
 
 	wg.Wait()

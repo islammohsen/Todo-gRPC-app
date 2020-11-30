@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net"
+	"todo-app/db"
 	"todo-app/todo"
 
 	"google.golang.org/grpc"
@@ -15,7 +16,7 @@ func main() {
 		return
 	}
 
-	database, err := todo.GetDB("testdb")
+	database, err := db.GetDB("testdb")
 	if err != nil {
 		log.Printf("Error when connecting to database : %v", err)
 		return

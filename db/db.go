@@ -1,4 +1,4 @@
-package todo
+package db
 
 import (
 	"database/sql"
@@ -8,6 +8,12 @@ import (
 
 type Database struct {
 	db *sql.DB
+}
+
+type TodoItem struct {
+	TodoID int
+	UserID int
+	Todo   string
 }
 
 func GetDB(dbName string) (*Database, error) {

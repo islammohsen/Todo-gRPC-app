@@ -61,7 +61,6 @@ service TodoService {
     rpc AddTodo (AddTodoRequest) returns (AddTodoResponse);
     rpc GetAllTodos (NoParams) returns (GetAllTodosResponse);
     rpc GetAllTodosStreaming(NoParams) returns (stream TodoItem);
-    rpc CountingTest(stream Counter) returns (stream Counter);
     rpc GetUserTodos(stream GetUserTodosRequest) returns (stream GetUserTodosResponse);
     rpc DeleteUserTodos(DeleteUserTodosRequest) returns(DeleteUserTodosResponse);
     rpc GetUserTodoItemsWithHash(GetUserTodoItemsWithHashRequest) returns(GetUserTodoItemsWithHashResponse);

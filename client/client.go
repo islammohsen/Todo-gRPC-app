@@ -51,33 +51,6 @@ func getAllTodosStreaming(ctx context.Context, todoService todo.TodoServiceClien
 	}
 }
 
-func testingCounter(ctx context.Context, todoService todo.TodoServiceClient) {
-	stream, err := todoService.CountingTest(ctx, grpc.EmptyCallOption{})
-	if err != nil {
-		log.Printf("Error couldn't init stream %s", err)
-	}
-	var counter int32 = 0
-	for i := 0; i < 10; i++ {
-		select {
-		case <-time.NewTicker(time.Second).C:
-			log.Println("Sending", counter+1)
-			stream.Send(&todo.Counter{Counter: counter + 1})
-			response, err := stream.Recv()
-			if err != nil {
-				log.Printf("Error in receiving")
-				return
-			}
-			counter = response.Counter
-			log.Println("Received", counter)
-		}
-	}
-	log.Println("Closing client")
-	if err := stream.CloseSend(); err != nil {
-		log.Printf("Failed to close")
-	}
-	log.Println("Closed")
-}
-
 func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userIDS []int) []*todo.TodoItem {
 	todos := make([]*todo.TodoItem, 0)
 	stream, err := todoService.GetUserTodos(ctx, grpc.EmptyCallOption{})
@@ -189,12 +162,6 @@ func main() {
 	//command : !get_all_streaming
 	if os.Args[1] == "!get_all_streaming" {
 		getAllTodosStreaming(ctx, todoService)
-	}
-
-	//testing counter
-	//command : !counter
-	if os.Args[1] == "!counter" {
-		testingCounter(ctx, todoService)
 	}
 
 	//get_user_todos

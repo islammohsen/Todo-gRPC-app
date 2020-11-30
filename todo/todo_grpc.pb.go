@@ -20,7 +20,6 @@ type TodoServiceClient interface {
 	AddTodo(ctx context.Context, in *AddTodoRequest, opts ...grpc.CallOption) (*AddTodoResponse, error)
 	GetAllTodos(ctx context.Context, in *NoParams, opts ...grpc.CallOption) (*GetAllTodosResponse, error)
 	GetAllTodosStreaming(ctx context.Context, in *NoParams, opts ...grpc.CallOption) (TodoService_GetAllTodosStreamingClient, error)
-	CountingTest(ctx context.Context, opts ...grpc.CallOption) (TodoService_CountingTestClient, error)
 	GetUserTodos(ctx context.Context, opts ...grpc.CallOption) (TodoService_GetUserTodosClient, error)
 	DeleteUserTodos(ctx context.Context, in *DeleteUserTodosRequest, opts ...grpc.CallOption) (*DeleteUserTodosResponse, error)
 	GetUserTodoItemsWithHash(ctx context.Context, in *GetUserTodoItemsWithHashRequest, opts ...grpc.CallOption) (*GetUserTodoItemsWithHashResponse, error)
@@ -84,39 +83,8 @@ func (x *todoServiceGetAllTodosStreamingClient) Recv() (*TodoItem, error) {
 	return m, nil
 }
 
-func (c *todoServiceClient) CountingTest(ctx context.Context, opts ...grpc.CallOption) (TodoService_CountingTestClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_TodoService_serviceDesc.Streams[1], "/todo.TodoService/CountingTest", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &todoServiceCountingTestClient{stream}
-	return x, nil
-}
-
-type TodoService_CountingTestClient interface {
-	Send(*Counter) error
-	Recv() (*Counter, error)
-	grpc.ClientStream
-}
-
-type todoServiceCountingTestClient struct {
-	grpc.ClientStream
-}
-
-func (x *todoServiceCountingTestClient) Send(m *Counter) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *todoServiceCountingTestClient) Recv() (*Counter, error) {
-	m := new(Counter)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *todoServiceClient) GetUserTodos(ctx context.Context, opts ...grpc.CallOption) (TodoService_GetUserTodosClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_TodoService_serviceDesc.Streams[2], "/todo.TodoService/GetUserTodos", opts...)
+	stream, err := c.cc.NewStream(ctx, &_TodoService_serviceDesc.Streams[1], "/todo.TodoService/GetUserTodos", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +139,6 @@ type TodoServiceServer interface {
 	AddTodo(context.Context, *AddTodoRequest) (*AddTodoResponse, error)
 	GetAllTodos(context.Context, *NoParams) (*GetAllTodosResponse, error)
 	GetAllTodosStreaming(*NoParams, TodoService_GetAllTodosStreamingServer) error
-	CountingTest(TodoService_CountingTestServer) error
 	GetUserTodos(TodoService_GetUserTodosServer) error
 	DeleteUserTodos(context.Context, *DeleteUserTodosRequest) (*DeleteUserTodosResponse, error)
 	GetUserTodoItemsWithHash(context.Context, *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error)
@@ -190,9 +157,6 @@ func (UnimplementedTodoServiceServer) GetAllTodos(context.Context, *NoParams) (*
 }
 func (UnimplementedTodoServiceServer) GetAllTodosStreaming(*NoParams, TodoService_GetAllTodosStreamingServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetAllTodosStreaming not implemented")
-}
-func (UnimplementedTodoServiceServer) CountingTest(TodoService_CountingTestServer) error {
-	return status.Errorf(codes.Unimplemented, "method CountingTest not implemented")
 }
 func (UnimplementedTodoServiceServer) GetUserTodos(TodoService_GetUserTodosServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetUserTodos not implemented")
@@ -271,32 +235,6 @@ type todoServiceGetAllTodosStreamingServer struct {
 
 func (x *todoServiceGetAllTodosStreamingServer) Send(m *TodoItem) error {
 	return x.ServerStream.SendMsg(m)
-}
-
-func _TodoService_CountingTest_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(TodoServiceServer).CountingTest(&todoServiceCountingTestServer{stream})
-}
-
-type TodoService_CountingTestServer interface {
-	Send(*Counter) error
-	Recv() (*Counter, error)
-	grpc.ServerStream
-}
-
-type todoServiceCountingTestServer struct {
-	grpc.ServerStream
-}
-
-func (x *todoServiceCountingTestServer) Send(m *Counter) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *todoServiceCountingTestServer) Recv() (*Counter, error) {
-	m := new(Counter)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func _TodoService_GetUserTodos_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -387,12 +325,6 @@ var _TodoService_serviceDesc = grpc.ServiceDesc{
 			StreamName:    "GetAllTodosStreaming",
 			Handler:       _TodoService_GetAllTodosStreaming_Handler,
 			ServerStreams: true,
-		},
-		{
-			StreamName:    "CountingTest",
-			Handler:       _TodoService_CountingTest_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
 		},
 		{
 			StreamName:    "GetUserTodos",
