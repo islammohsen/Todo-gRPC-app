@@ -71,9 +71,10 @@ func TestAddTodo(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
+
 	for _, tc := range testData {
 
-		ctx := context.Background()
 		fakeDS := testingDB{}
 		server := Server{DS: &fakeDS}
 
@@ -164,9 +165,10 @@ func TestGetAllTodos(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
+
 	for _, tc := range testData {
 
-		ctx := context.Background()
 		fakeDS := testingDB{}
 		server := Server{DS: &fakeDS}
 
@@ -294,9 +296,10 @@ func TestDeleteUserTodos(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
+
 	for _, tc := range testData {
 
-		ctx := context.Background()
 		fakeDS := testingDB{}
 		server := Server{DS: &fakeDS}
 
