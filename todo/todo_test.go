@@ -29,6 +29,7 @@ func TestMain(m *testing.M) {
 
 	backgroundContext = context.Background()
 
+	//init server
 	lis, err := net.Listen("tcp", ":9000")
 	if err != nil {
 		log.Fatalf("Failed to listen to port 9009 : %v", err)
@@ -40,7 +41,7 @@ func TestMain(m *testing.M) {
 
 	go grpcServer.Serve(lis)
 
-	//init connection
+	//init client
 	conn, err := grpc.Dial(":9000", grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Could not connect %s", err)
@@ -63,6 +64,12 @@ func TestAddTodo(t *testing.T) {
 			desc:    "",
 			input:   &AddTodoRequest{Item: &TodoItem{UserID: 1, TodoID: -1, Todo: "Task 1"}},
 			wantRes: &AddTodoResponse{Item: &TodoItem{UserID: 1, TodoID: 1, Todo: "Task 1"}},
+			wantErr: false,
+		},
+		{
+			desc:    "",
+			input:   &AddTodoRequest{Item: &TodoItem{UserID: 2, TodoID: -1, Todo: "Task 2"}},
+			wantRes: &AddTodoResponse{Item: &TodoItem{UserID: 2, TodoID: 1, Todo: "Task 2"}},
 			wantErr: false,
 		},
 	}
