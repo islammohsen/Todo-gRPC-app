@@ -458,13 +458,13 @@ func TestGetAllTodosStreaming(t *testing.T) {
 
 		if tc.wantErr {
 			if err == nil {
-				t.Errorf("[%q]: DeleteUserTodos() got success, want an error", tc.desc)
+				t.Errorf("[%q]: GetAllTodosStreaming() got success, want an error", tc.desc)
 			}
 			continue
 		}
 
 		if err != nil {
-			t.Errorf("[%q]: DeleteUserTodos() got error %v, want success", tc.desc, err)
+			t.Errorf("[%q]: GetAllTodosStreaming() got error %v, want success", tc.desc, err)
 			continue
 		}
 
@@ -556,18 +556,18 @@ func TestGetAllTodosStreaming2(t *testing.T) {
 
 		if tc.wantErr {
 			if err == nil {
-				t.Errorf("[%q]: DeleteUserTodos() got success, want an error", tc.desc)
+				t.Errorf("[%q]: GetAllTodosStreaming2() got success, want an error", tc.desc)
 			}
 			continue
 		}
 
 		if err != nil {
-			t.Errorf("[%q]: DeleteUserTodos() got error %v, want success", tc.desc, err)
+			t.Errorf("[%q]: GetAllTodosStreaming2() got error %v, want success", tc.desc, err)
 			continue
 		}
 
 		if diff := cmp.Diff(tc.wantRes, stream.Results, protocmp.Transform()); diff != "" {
-			t.Errorf("[%q]: GetAllTodosStreaming() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+			t.Errorf("[%q]: GetAllTodosStreaming2() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 			continue
 		}
 	}
