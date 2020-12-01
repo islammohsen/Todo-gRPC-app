@@ -63,6 +63,7 @@ func TestAddTodo(t *testing.T) {
 			desc:    "",
 			input:   &AddTodoRequest{Item: &TodoItem{UserID: 1, TodoID: -1, Todo: "Task 1"}},
 			wantRes: &AddTodoResponse{Item: &TodoItem{UserID: 1, TodoID: 1, Todo: "Task 1"}},
+			wantErr: false,
 		},
 	}
 
