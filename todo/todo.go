@@ -21,7 +21,8 @@ type DataStore interface {
 
 //Server implementing TodoSeviceServer
 type Server struct {
-	DS DataStore
+	DS          DataStore
+	WaitingTime time.Duration
 }
 
 func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
@@ -60,7 +61,7 @@ func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetA
 	if err != nil {
 		return err
 	}
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(s.WaitingTime)
 	defer ticker.Stop()
 	for _, todo := range todos {
 		select {

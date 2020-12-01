@@ -3,10 +3,16 @@ package todo
 import (
 	"context"
 	"errors"
+	"io"
+	"log"
+	"net"
 	"testing"
+	"time"
 	"todo-app/models"
 
 	"github.com/google/go-cmp/cmp"
+	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -44,6 +50,8 @@ func (this *testingDB) Truncate() error {
 	return this.err
 }
 
+const testingWaitingTime = 10 * time.Millisecond
+
 func TestAddTodo(t *testing.T) {
 	testData := []struct {
 		desc    string
@@ -76,7 +84,7 @@ func TestAddTodo(t *testing.T) {
 	for _, tc := range testData {
 
 		fakeDS := testingDB{}
-		server := Server{DS: &fakeDS}
+		server := Server{DS: &fakeDS, WaitingTime: testingWaitingTime}
 
 		fakeDS.intResp = tc.dsResp
 		fakeDS.err = tc.dsErr
@@ -170,7 +178,7 @@ func TestGetAllTodos(t *testing.T) {
 	for _, tc := range testData {
 
 		fakeDS := testingDB{}
-		server := Server{DS: &fakeDS}
+		server := Server{DS: &fakeDS, WaitingTime: testingWaitingTime}
 
 		fakeDS.todosResp = tc.dsResp
 		fakeDS.err = tc.dsErr
@@ -301,7 +309,7 @@ func TestDeleteUserTodos(t *testing.T) {
 	for _, tc := range testData {
 
 		fakeDS := testingDB{}
-		server := Server{DS: &fakeDS}
+		server := Server{DS: &fakeDS, WaitingTime: testingWaitingTime}
 
 		fakeDS.data = tc.dsData
 		fakeDS.err = tc.dsErr
@@ -330,4 +338,140 @@ func TestDeleteUserTodos(t *testing.T) {
 			continue
 		}
 	}
+}
+
+func dialer(fakeServer *Server) func(context.Context, string) (net.Conn, error) {
+	listener := bufconn.Listen(1024 * 1024)
+
+	server := grpc.NewServer()
+
+	RegisterTodoServiceServer(server, fakeServer)
+
+	go func() {
+		if err := server.Serve(listener); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	return func(context.Context, string) (net.Conn, error) {
+		return listener.Dial()
+	}
+}
+
+func TestGetAllTodosStreaming(t *testing.T) {
+	testData := []struct {
+		desc    string
+		input   *NoParams
+		dsResp  []*models.TodoItem
+		dsErr   error
+		wantRes []*TodoItem
+		wantErr bool
+	}{
+		{
+			desc:    "Empty response",
+			input:   &NoParams{},
+			dsResp:  []*models.TodoItem{},
+			dsErr:   nil,
+			wantRes: []*TodoItem{},
+			wantErr: false,
+		},
+		{
+			desc:  "one todo item",
+			input: &NoParams{},
+			dsResp: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+			},
+			dsErr: nil,
+			wantRes: []*TodoItem{
+				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+			},
+			wantErr: false,
+		},
+		{
+			desc:  "multiple todo items",
+			input: &NoParams{},
+			dsResp: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 3, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 4, UserID: 3, Todo: "Task 1"},
+			},
+			dsErr: nil,
+			wantRes: []*TodoItem{
+				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: 2, UserID: 1, Todo: "Task 2"},
+				&TodoItem{TodoID: 3, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: 4, UserID: 3, Todo: "Task 1"},
+			},
+			wantErr: false,
+		},
+		{
+			desc:    "Error response",
+			input:   &NoParams{},
+			dsResp:  nil,
+			dsErr:   errors.New("Invalid"),
+			wantRes: nil,
+			wantErr: true,
+		},
+	}
+
+	ctx := context.Background()
+
+	for _, tc := range testData {
+
+		fakeDS := testingDB{}
+		server := Server{DS: &fakeDS, WaitingTime: testingWaitingTime}
+
+		fakeDS.todosResp = tc.dsResp
+		fakeDS.err = tc.dsErr
+
+		//init server
+		conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer(&server)))
+		if err != nil {
+			t.Errorf("[%q]: GetAllTodosStreaming() got error %v", tc.desc, err)
+			return
+		}
+		defer conn.Close()
+
+		//init client
+		client := NewTodoServiceClient(conn)
+
+		stream, err := client.GetAllTodosStreaming(ctx, tc.input)
+		if err != nil {
+			t.Errorf("[%q]: GetAllTodosStreaming() got error %v", tc.desc, err)
+			continue
+		}
+
+		err = nil
+		var todos = make([]*TodoItem, 0)
+		for {
+			item, curErr := stream.Recv()
+			if curErr == io.EOF {
+				break
+			}
+			if curErr != nil {
+				err = curErr
+				break
+			}
+			todos = append(todos, item)
+		}
+
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("[%q]: DeleteUserTodos() got success, want an error", tc.desc)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("[%q]: DeleteUserTodos() got error %v, want success", tc.desc, err)
+			continue
+		}
+
+		if diff := cmp.Diff(tc.wantRes, todos, protocmp.Transform()); diff != "" {
+			t.Errorf("[%q]: GetAllTodosStreaming() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+			continue
+		}
+	}
+
 }
