@@ -52,7 +52,7 @@ func TestAddTodo(t *testing.T) {
 		{
 			desc:    "Test AddTodo returning error",
 			input:   &AddTodoRequest{Item: &TodoItem{UserID: 1, TodoID: -1, Todo: "Task 1"}},
-			dsResp:  1,
+			dsResp:  0,
 			dsErr:   errors.New("Invalid"),
 			wantRes: nil,
 			wantErr: true,
@@ -69,6 +69,99 @@ func TestAddTodo(t *testing.T) {
 		fakeDS.err = tc.dsErr
 
 		got, err := server.AddTodo(ctx, tc.input)
+
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("[%q]: GetUserTodos() got success, want an error", tc.desc)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("[%q]: GetUserTodos() got error %v, want success", tc.desc, err)
+			continue
+		}
+
+		if diff := cmp.Diff(tc.wantRes, got, protocmp.Transform()); diff != "" {
+			t.Errorf("[%q]: GetUserTodos() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+			continue
+		}
+	}
+}
+
+func TestGetAllTodos(t *testing.T) {
+	testData := []struct {
+		desc    string
+		input   *NoParams
+		dsResp  []*models.TodoItem
+		dsErr   error
+		wantRes *GetAllTodosResponse
+		wantErr bool
+	}{
+		{
+			desc:   "Empty response",
+			input:  &NoParams{},
+			dsResp: []*models.TodoItem{},
+			dsErr:  nil,
+			wantRes: &GetAllTodosResponse{
+				Items: []*TodoItem{},
+			},
+			wantErr: false,
+		},
+		{
+			desc:  "one todo item",
+			input: &NoParams{},
+			dsResp: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+			},
+			dsErr: nil,
+			wantRes: &GetAllTodosResponse{
+				Items: []*TodoItem{
+					&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			desc:  "multiple todo items",
+			input: &NoParams{},
+			dsResp: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 3, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 4, UserID: 3, Todo: "Task 1"},
+			},
+			dsErr: nil,
+			wantRes: &GetAllTodosResponse{
+				Items: []*TodoItem{
+					&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+					&TodoItem{TodoID: 2, UserID: 1, Todo: "Task 2"},
+					&TodoItem{TodoID: 3, UserID: 2, Todo: "Task 1"},
+					&TodoItem{TodoID: 4, UserID: 3, Todo: "Task 1"},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			desc:    "Error response",
+			input:   &NoParams{},
+			dsResp:  nil,
+			dsErr:   errors.New("Invalid"),
+			wantRes: nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testData {
+
+		ctx := context.Background()
+		fakeDS := testingDB{}
+		server := Server{DS: &fakeDS}
+
+		fakeDS.todosResp = tc.dsResp
+		fakeDS.err = tc.dsErr
+
+		got, err := server.GetAllTodos(ctx, tc.input)
 
 		if tc.wantErr {
 			if err == nil {
