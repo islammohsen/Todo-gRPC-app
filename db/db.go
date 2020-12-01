@@ -2,18 +2,13 @@ package db
 
 import (
 	"database/sql"
+	"todo-app/models"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 type Database struct {
 	db *sql.DB
-}
-
-type TodoItem struct {
-	TodoID int
-	UserID int
-	Todo   string
 }
 
 func GetDB(dbName string) (*Database, error) {
@@ -26,7 +21,7 @@ func GetDB(dbName string) (*Database, error) {
 	return &Database{db: db}, nil
 }
 
-func (this *Database) InsertTodoItem(item *TodoItem) (int, error) {
+func (this *Database) InsertTodoItem(item *models.TodoItem) (int32, error) {
 	const query = "INSERT INTO todos (UserID, Todo) VALUES(?, ?);"
 	result, err := this.db.Exec(query, item.UserID, item.Todo)
 
@@ -34,14 +29,14 @@ func (this *Database) InsertTodoItem(item *TodoItem) (int, error) {
 		return 0, err
 	}
 	id, err := result.LastInsertId()
-	return int(id), err
+	return int32(id), err
 }
 
-func extractTodos(rows *sql.Rows) ([]*TodoItem, error) {
+func extractTodos(rows *sql.Rows) ([]*models.TodoItem, error) {
 	defer rows.Close()
-	todos := make([]*TodoItem, 0)
+	todos := make([]*models.TodoItem, 0)
 	for rows.Next() {
-		item := &TodoItem{}
+		item := &models.TodoItem{}
 		err := rows.Scan(&item.TodoID, &item.UserID, &item.Todo)
 		if err != nil {
 			return nil, err
@@ -51,7 +46,7 @@ func extractTodos(rows *sql.Rows) ([]*TodoItem, error) {
 	return todos, nil
 }
 
-func (this *Database) GetAllTodos() ([]*TodoItem, error) {
+func (this *Database) GetAllTodos() ([]*models.TodoItem, error) {
 	const query = "SELECT * FROM todos"
 	rows, err := this.db.Query(query)
 
@@ -62,7 +57,7 @@ func (this *Database) GetAllTodos() ([]*TodoItem, error) {
 	return extractTodos(rows)
 }
 
-func (this *Database) GetUserTodos(userID int) ([]*TodoItem, error) {
+func (this *Database) GetUserTodos(userID int32) ([]*models.TodoItem, error) {
 	const query = "SELECT * FROM todos WHERE UserID = ?"
 	rows, err := this.db.Query(query, userID)
 
@@ -73,7 +68,7 @@ func (this *Database) GetUserTodos(userID int) ([]*TodoItem, error) {
 	return extractTodos(rows)
 }
 
-func (this *Database) DeleteUserTodos(userID int) error {
+func (this *Database) DeleteUserTodos(userID int32) error {
 	const query = "DELETE FROM todos WHERE UserID = ?"
 	_, err := this.db.Exec(query, userID)
 	return err

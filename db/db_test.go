@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"testing"
+	"todo-app/models"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -23,7 +24,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func setup(t *testing.T, initialTodos []*TodoItem) {
+func setup(t *testing.T, initialTodos []*models.TodoItem) {
 	err := database.Truncate()
 	if err != nil {
 		t.Errorf("Error in setup database %v", err)
@@ -41,30 +42,30 @@ func setup(t *testing.T, initialTodos []*TodoItem) {
 func TestInsertTodoItem(t *testing.T) {
 	testData := []struct {
 		desc    string
-		env     []*TodoItem
-		input   []*TodoItem
-		wantRes []int
+		env     []*models.TodoItem
+		input   []*models.TodoItem
+		wantRes []int32
 		wantErr bool
 	}{
 		{
 			desc: "empty initial env - one input",
-			env:  []*TodoItem{},
-			input: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+			env:  []*models.TodoItem{},
+			input: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
 			},
-			wantRes: []int{
+			wantRes: []int32{
 				1,
 			},
 			wantErr: false,
 		},
 		{
 			desc: "empty initial env - multiple input",
-			env:  []*TodoItem{},
-			input: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+			env:  []*models.TodoItem{},
+			input: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
 			},
-			wantRes: []int{
+			wantRes: []int32{
 				1,
 				2,
 			},
@@ -72,31 +73,31 @@ func TestInsertTodoItem(t *testing.T) {
 		},
 		{
 			desc: "populated initial env - one input",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
 			},
-			input: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+			input: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
 			},
-			wantRes: []int{
+			wantRes: []int32{
 				4,
 			},
 			wantErr: false,
 		},
 		{
 			desc: "populated initial env - multiple input",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
 			},
-			input: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+			input: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
 			},
-			wantRes: []int{
+			wantRes: []int32{
 				4,
 				5,
 			},
@@ -109,7 +110,7 @@ func TestInsertTodoItem(t *testing.T) {
 		setup(t, tc.env)
 
 		//represent the Results
-		var got []int
+		var got []int32
 
 		//boolean should we skip test or not
 		skipTest := false
@@ -153,39 +154,39 @@ func TestInsertTodoItem(t *testing.T) {
 func TestDeleteUserTodos(t *testing.T) {
 	testData := []struct {
 		desc    string
-		env     []*TodoItem
-		input   int
+		env     []*models.TodoItem
+		input   int32
 		wantErr bool
 	}{
 		{
 			desc: "no todos for user",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
 			},
 			input:   1,
 			wantErr: false,
 		},
 		{
 			desc: "one todo for user",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
 			},
 			input:   1,
 			wantErr: false,
 		},
 		{
 			desc: "multiple todo for user",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
 			},
 			input:   1,
 			wantErr: false,
@@ -228,51 +229,51 @@ func TestGetUserTodos(t *testing.T) {
 
 	testData := []struct {
 		desc    string
-		env     []*TodoItem
-		input   int
-		wantRes []*TodoItem
+		env     []*models.TodoItem
+		input   int32
+		wantRes []*models.TodoItem
 		wantErr bool
 	}{
 		{
 			desc: "No user todos",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
 			},
 			input:   1,
-			wantRes: []*TodoItem{},
+			wantRes: []*models.TodoItem{},
 			wantErr: false,
 		},
 		{
 			desc: "one user todo",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
 			},
 			input: 1,
-			wantRes: []*TodoItem{
-				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+			wantRes: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
 			},
 			wantErr: false,
 		},
 		{
 			desc: "multiple user todos",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 3"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 3"},
 			},
 			input: 1,
-			wantRes: []*TodoItem{
-				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: 4, UserID: 1, Todo: "Task 2"},
-				&TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			wantRes: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 4, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
 			},
 			wantErr: false,
 		},
@@ -295,7 +296,7 @@ func TestGetUserTodos(t *testing.T) {
 			t.Errorf("[%q]: GetUserTodos() got error %v, want success", tc.desc, err)
 		}
 
-		if diff := cmp.Diff(tc.wantRes, got, cmpopts.IgnoreUnexported(TodoItem{})); diff != "" {
+		if diff := cmp.Diff(tc.wantRes, got, cmpopts.IgnoreUnexported(models.TodoItem{})); diff != "" {
 			t.Errorf("[%q]: InsertTodoItem() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 		}
 	}
@@ -306,43 +307,43 @@ func TestGetAllTodos(t *testing.T) {
 
 	testData := []struct {
 		desc    string
-		env     []*TodoItem
-		wantRes []*TodoItem
+		env     []*models.TodoItem
+		wantRes []*models.TodoItem
 		wantErr bool
 	}{
 		{
 			desc:    "No Todos",
-			env:     []*TodoItem{},
-			wantRes: []*TodoItem{},
+			env:     []*models.TodoItem{},
+			wantRes: []*models.TodoItem{},
 			wantErr: false,
 		},
 		{
 			desc: "one user todo",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
 			},
-			wantRes: []*TodoItem{
-				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+			wantRes: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
 			},
 			wantErr: false,
 		},
 		{
 			desc: "multiple users todos",
-			env: []*TodoItem{
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
-				&TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
-				&TodoItem{TodoID: -1, UserID: 1, Todo: "Task 3"},
+			env: []*models.TodoItem{
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: -1, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: -1, UserID: 1, Todo: "Task 3"},
 			},
-			wantRes: []*TodoItem{
-				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
-				&TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
-				&TodoItem{TodoID: 3, UserID: 2, Todo: "Task 2"},
-				&TodoItem{TodoID: 4, UserID: 1, Todo: "Task 2"},
-				&TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
-				&TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			wantRes: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 3, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 4, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
 			},
 			wantErr: false,
 		},
@@ -365,7 +366,7 @@ func TestGetAllTodos(t *testing.T) {
 			t.Errorf("[%q]: GetUserTodos() got error %v, want success", tc.desc, err)
 		}
 
-		if diff := cmp.Diff(tc.wantRes, got, cmpopts.IgnoreUnexported(TodoItem{})); diff != "" {
+		if diff := cmp.Diff(tc.wantRes, got, cmpopts.IgnoreUnexported(models.TodoItem{})); diff != "" {
 			t.Errorf("[%q]: GetUserTodos() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 		}
 	}

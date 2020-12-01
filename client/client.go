@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-func addTodo(ctx context.Context, todoService todo.TodoServiceClient, userID int, todoItem string) {
-	message := &todo.AddTodoRequest{Item: &todo.TodoItem{UserID: int32(userID), TodoID: -1, Todo: todoItem}}
+func addTodo(ctx context.Context, todoService todo.TodoServiceClient, userID int32, todoItem string) {
+	message := &todo.AddTodoRequest{Item: &todo.TodoItem{UserID: userID, TodoID: -1, Todo: todoItem}}
 	response, err := todoService.AddTodo(ctx, message)
 
 	if err != nil {
@@ -51,7 +51,7 @@ func getAllTodosStreaming(ctx context.Context, todoService todo.TodoServiceClien
 	}
 }
 
-func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userIDS []int) []*todo.TodoItem {
+func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userIDS []int32) []*todo.TodoItem {
 	todos := make([]*todo.TodoItem, 0)
 	stream, err := todoService.GetUserTodos(ctx, grpc.EmptyCallOption{})
 	if err != nil {
@@ -79,7 +79,7 @@ func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userI
 	}()
 	for _, id := range userIDS {
 		log.Println("Sending ", id)
-		stream.Send(&todo.GetUserTodosRequest{UserID: int32(id)})
+		stream.Send(&todo.GetUserTodosRequest{UserID: id})
 	}
 	log.Println("Closing client")
 	if err := stream.CloseSend(); err != nil {
@@ -90,8 +90,8 @@ func getUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userI
 	return todos
 }
 
-func deleteUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userID int) {
-	message := &todo.DeleteUserTodosRequest{UserID: int32(userID)}
+func deleteUserTodos(ctx context.Context, todoService todo.TodoServiceClient, userID int32) {
+	message := &todo.DeleteUserTodosRequest{UserID: userID}
 	_, err := todoService.DeleteUserTodos(ctx, message)
 
 	if err != nil {
@@ -101,8 +101,8 @@ func deleteUserTodos(ctx context.Context, todoService todo.TodoServiceClient, us
 	log.Printf("Deleted")
 }
 
-func getUserTodosWithHash(ctx context.Context, todoService todo.TodoServiceClient, userID int, timeOut time.Duration) {
-	message := &todo.GetUserTodoItemsWithHashRequest{UserID: int32(userID)}
+func getUserTodosWithHash(ctx context.Context, todoService todo.TodoServiceClient, userID int32, timeOut time.Duration) {
+	message := &todo.GetUserTodoItemsWithHashRequest{UserID: userID}
 	childContext, cancel := context.WithTimeout(ctx, timeOut)
 	defer cancel()
 	response, err := todoService.GetUserTodoItemsWithHash(childContext, message)
@@ -149,7 +149,7 @@ func main() {
 			return
 		}
 		todoItem := strings.Join(os.Args[3:], " ")
-		addTodo(ctx, todoService, userID, todoItem)
+		addTodo(ctx, todoService, int32(userID), todoItem)
 	}
 
 	//get all todos
@@ -171,13 +171,13 @@ func main() {
 			log.Println("Invalid arguments")
 			return
 		}
-		userIDS := make([]int, 0)
+		userIDS := make([]int32, 0)
 		for i := 2; i < len(os.Args); i++ {
 			if val, err := strconv.Atoi(os.Args[i]); err != nil {
 				log.Println("Invalid arguments")
 				return
 			} else {
-				userIDS = append(userIDS, val)
+				userIDS = append(userIDS, int32(val))
 			}
 		}
 		todos := getUserTodos(ctx, todoService, userIDS)
@@ -199,7 +199,7 @@ func main() {
 			log.Println("Invalid arguments")
 			return
 		}
-		deleteUserTodos(ctx, todoService, userID)
+		deleteUserTodos(ctx, todoService, int32(userID))
 	}
 
 	if os.Args[1] == "!get_user_todos_hash" {
@@ -217,6 +217,6 @@ func main() {
 			log.Println("Invalid arguments")
 			return
 		}
-		getUserTodosWithHash(ctx, todoService, userID, time.Millisecond*time.Duration(timeOut))
+		getUserTodosWithHash(ctx, todoService, int32(userID), time.Millisecond*time.Duration(timeOut))
 	}
 }

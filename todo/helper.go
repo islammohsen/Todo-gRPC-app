@@ -1,13 +1,13 @@
 package todo
 
 import (
-	"todo-app/db"
+	"todo-app/models"
 )
 
-func toDatabaseTodoItem(item *TodoItem) *db.TodoItem {
-	return &db.TodoItem{TodoID: int(item.TodoID), UserID: int(item.UserID), Todo: item.Todo}
+func toModelsTodoItem(item *TodoItem) *models.TodoItem {
+	return &models.TodoItem{TodoID: item.TodoID, UserID: item.UserID, Todo: item.Todo}
 }
 
-func toProtoTodoItem(item *db.TodoItem) *TodoItem {
-	return &TodoItem{TodoID: int32(item.TodoID), UserID: int32(item.UserID), Todo: item.Todo}
+func toProtoTodoItem(item *models.TodoItem) *TodoItem {
+	return &TodoItem{TodoID: item.TodoID, UserID: item.UserID, Todo: item.Todo}
 }

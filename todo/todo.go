@@ -7,13 +7,21 @@ import (
 	"log"
 	sync "sync"
 	"time"
-
-	"todo-app/db"
+	"todo-app/models"
 )
+
+//DataStore defining functions to be implemented to store user todos
+type DataStore interface {
+	InsertTodoItem(item *models.TodoItem) (int32, error)
+	GetAllTodos() ([]*models.TodoItem, error)
+	GetUserTodos(userID int32) ([]*models.TodoItem, error)
+	DeleteUserTodos(userID int32) error
+	Truncate() error
+}
 
 //Server implementing TodoSeviceServer
 type Server struct {
-	Database *db.Database
+	DS DataStore
 }
 
 func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
@@ -22,11 +30,11 @@ func (s *Server) mustEmbedUnimplementedTodoServiceServer() {}
 func (s *Server) AddTodo(ctx context.Context, message *AddTodoRequest) (*AddTodoResponse, error) {
 	log.Printf("Received : %v", message)
 	item := message.GetItem()
-	id, err := s.Database.InsertTodoItem(toDatabaseTodoItem(item))
+	id, err := s.DS.InsertTodoItem(toModelsTodoItem(item))
 	if err != nil {
 		return nil, err
 	}
-	item.TodoID = int32(id)
+	item.TodoID = id
 	return &AddTodoResponse{Item: item}, nil
 }
 
@@ -34,7 +42,7 @@ func (s *Server) AddTodo(ctx context.Context, message *AddTodoRequest) (*AddTodo
 func (s *Server) GetAllTodos(ctx context.Context, message *NoParams) (*GetAllTodosResponse, error) {
 	log.Printf("Received Get all todos request")
 	response := GetAllTodosResponse{Items: make([]*TodoItem, 0)}
-	todos, err := s.Database.GetAllTodos()
+	todos, err := s.DS.GetAllTodos()
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +56,7 @@ func (s *Server) GetAllTodos(ctx context.Context, message *NoParams) (*GetAllTod
 //server side streaming
 func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetAllTodosStreamingServer) error {
 	log.Printf("Received Get all todos streaming request")
-	todos, err := s.Database.GetAllTodos()
+	todos, err := s.DS.GetAllTodos()
 	if err != nil {
 		return err
 	}
@@ -86,7 +94,7 @@ func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 		select {
 		case <-ticker.C:
 
-			dbTodos, err := s.Database.GetUserTodos(int(userID))
+			dbTodos, err := s.DS.GetUserTodos(userID)
 			if err != nil {
 				return err
 			}
@@ -101,9 +109,10 @@ func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 	}
 }
 
+//DeleteUserTodos input user id, delete user todos from datastore
 func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRequest) (*DeleteUserTodosResponse, error) {
 	userID := message.UserID
-	err := s.Database.DeleteUserTodos(int(userID))
+	err := s.DS.DeleteUserTodos(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +137,7 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 	log.Println("Received get user todo items with hash request", message)
 
 	userID := message.UserID
-	todos, err := s.Database.GetUserTodos(int(userID))
+	todos, err := s.DS.GetUserTodos(userID)
 	if err != nil {
 		return nil, err
 	}

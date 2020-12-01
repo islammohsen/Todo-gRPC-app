@@ -21,7 +21,7 @@ func main() {
 		log.Printf("Error when connecting to database : %v", err)
 		return
 	}
-	s := todo.Server{Database: database}
+	s := todo.Server{DS: database}
 
 	grpcServer := grpc.NewServer()
 	todo.RegisterTodoServiceServer(grpcServer, &s)
