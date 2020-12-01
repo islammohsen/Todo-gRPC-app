@@ -2,53 +2,47 @@ package todo
 
 import (
 	"context"
-	"log"
-	"net"
 	"os"
 	"testing"
 	"todo-app/models"
 
 	"github.com/google/go-cmp/cmp"
-	grpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
 type testingDB struct {
+	intResp   int32
+	todosResp []*models.TodoItem
+	err       error
 }
 
-func (this *testingDB) InsertTodoItem(item *models.TodoItem) (int32, error)   { return 1, nil }
-func (this *testingDB) GetAllTodos() ([]*models.TodoItem, error)              { return nil, nil }
-func (this *testingDB) GetUserTodos(userID int32) ([]*models.TodoItem, error) { return nil, nil }
-func (this *testingDB) DeleteUserTodos(userID int32) error                    { return nil }
-func (this *testingDB) Truncate() error                                       { return nil }
+func (this *testingDB) InsertTodoItem(item *models.TodoItem) (int32, error) {
+	return this.intResp, this.err
+}
+func (this *testingDB) GetAllTodos() ([]*models.TodoItem, error) {
+	return this.todosResp, this.err
+}
+func (this *testingDB) GetUserTodos(userID int32) ([]*models.TodoItem, error) {
+	return this.todosResp, this.err
+}
+func (this *testingDB) DeleteUserTodos(userID int32) error {
+	return this.err
+}
+func (this *testingDB) Truncate() error {
+	return this.err
+}
 
 var backgroundContext context.Context
-var todoService TodoServiceClient
+var server Server
+var fakeDS testingDB
 
 func TestMain(m *testing.M) {
 
 	backgroundContext = context.Background()
 
-	//init server
-	lis, err := net.Listen("tcp", ":9000")
-	if err != nil {
-		log.Fatalf("Failed to listen to port 9009 : %v", err)
-		return
-	}
+	fakeDS = testingDB{}
 
-	grpcServer := grpc.NewServer()
-	RegisterTodoServiceServer(grpcServer, &Server{DS: &testingDB{}})
-
-	go grpcServer.Serve(lis)
-
-	//init client
-	conn, err := grpc.Dial(":9000", grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("Could not connect %s", err)
-	}
-
-	//get todo service
-	todoService = NewTodoServiceClient(conn)
+	server = Server{DS: &fakeDS}
 
 	os.Exit(m.Run())
 }
@@ -57,26 +51,35 @@ func TestAddTodo(t *testing.T) {
 	testData := []struct {
 		desc    string
 		input   *AddTodoRequest
+		dsResp  int32
+		dsErr   error
 		wantRes *AddTodoResponse
 		wantErr bool
 	}{
 		{
 			desc:    "",
 			input:   &AddTodoRequest{Item: &TodoItem{UserID: 1, TodoID: -1, Todo: "Task 1"}},
+			dsResp:  1,
+			dsErr:   nil,
 			wantRes: &AddTodoResponse{Item: &TodoItem{UserID: 1, TodoID: 1, Todo: "Task 1"}},
 			wantErr: false,
 		},
 		{
 			desc:    "",
-			input:   &AddTodoRequest{Item: &TodoItem{UserID: 2, TodoID: -1, Todo: "Task 2"}},
-			wantRes: &AddTodoResponse{Item: &TodoItem{UserID: 2, TodoID: 1, Todo: "Task 2"}},
+			input:   &AddTodoRequest{Item: &TodoItem{UserID: 2, TodoID: -1, Todo: "Task 1"}},
+			dsResp:  2,
+			dsErr:   nil,
+			wantRes: &AddTodoResponse{Item: &TodoItem{UserID: 2, TodoID: 2, Todo: "Task 1"}},
 			wantErr: false,
 		},
 	}
 
 	for _, tc := range testData {
 
-		got, err := todoService.AddTodo(backgroundContext, tc.input)
+		fakeDS.intResp = tc.dsResp
+		fakeDS.err = tc.dsErr
+
+		got, err := server.AddTodo(backgroundContext, tc.input)
 
 		if tc.wantErr {
 			if err == nil {
