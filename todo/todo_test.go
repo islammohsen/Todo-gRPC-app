@@ -2,7 +2,6 @@ package todo
 
 import (
 	"context"
-	"os"
 	"testing"
 	"todo-app/models"
 
@@ -30,21 +29,6 @@ func (this *testingDB) DeleteUserTodos(userID int32) error {
 }
 func (this *testingDB) Truncate() error {
 	return this.err
-}
-
-var backgroundContext context.Context
-var server Server
-var fakeDS testingDB
-
-func TestMain(m *testing.M) {
-
-	backgroundContext = context.Background()
-
-	fakeDS = testingDB{}
-
-	server = Server{DS: &fakeDS}
-
-	os.Exit(m.Run())
 }
 
 func TestAddTodo(t *testing.T) {
@@ -76,10 +60,14 @@ func TestAddTodo(t *testing.T) {
 
 	for _, tc := range testData {
 
+		ctx := context.Background()
+		fakeDS := testingDB{}
+		server := Server{DS: &fakeDS}
+
 		fakeDS.intResp = tc.dsResp
 		fakeDS.err = tc.dsErr
 
-		got, err := server.AddTodo(backgroundContext, tc.input)
+		got, err := server.AddTodo(ctx, tc.input)
 
 		if tc.wantErr {
 			if err == nil {
