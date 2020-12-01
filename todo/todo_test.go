@@ -2,6 +2,7 @@ package todo
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"todo-app/models"
 
@@ -41,7 +42,7 @@ func TestAddTodo(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			desc:    "",
+			desc:    "Test AddTodo returning todo item",
 			input:   &AddTodoRequest{Item: &TodoItem{UserID: 1, TodoID: -1, Todo: "Task 1"}},
 			dsResp:  1,
 			dsErr:   nil,
@@ -49,12 +50,12 @@ func TestAddTodo(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			desc:    "",
-			input:   &AddTodoRequest{Item: &TodoItem{UserID: 2, TodoID: -1, Todo: "Task 1"}},
-			dsResp:  2,
-			dsErr:   nil,
-			wantRes: &AddTodoResponse{Item: &TodoItem{UserID: 2, TodoID: 2, Todo: "Task 1"}},
-			wantErr: false,
+			desc:    "Test AddTodo returning error",
+			input:   &AddTodoRequest{Item: &TodoItem{UserID: 1, TodoID: -1, Todo: "Task 1"}},
+			dsResp:  1,
+			dsErr:   errors.New("Invalid"),
+			wantRes: nil,
+			wantErr: true,
 		},
 	}
 
