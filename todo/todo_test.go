@@ -372,7 +372,7 @@ func TestGetAllTodosStreaming(t *testing.T) {
 			input:   &NoParams{},
 			dsResp:  []*models.TodoItem{},
 			dsErr:   nil,
-			wantRes: []*TodoItem{},
+			wantRes: nil,
 			wantErr: false,
 		},
 		{
@@ -443,7 +443,7 @@ func TestGetAllTodosStreaming(t *testing.T) {
 		}
 
 		err = nil
-		var todos = make([]*TodoItem, 0)
+		var todos []*TodoItem
 		for {
 			item, curErr := stream.Recv()
 			if curErr == io.EOF {
@@ -469,6 +469,104 @@ func TestGetAllTodosStreaming(t *testing.T) {
 		}
 
 		if diff := cmp.Diff(tc.wantRes, todos, protocmp.Transform()); diff != "" {
+			t.Errorf("[%q]: GetAllTodosStreaming() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+			continue
+		}
+	}
+
+}
+
+type testing_TodoService_GetAllTodosStreamingServer struct {
+	grpc.ServerStream
+	Results []*TodoItem
+}
+
+func (this *testing_TodoService_GetAllTodosStreamingServer) Send(item *TodoItem) error {
+	this.Results = append(this.Results, item)
+	return nil
+}
+
+func TestGetAllTodosStreaming2(t *testing.T) {
+	testData := []struct {
+		desc    string
+		input   *NoParams
+		dsResp  []*models.TodoItem
+		dsErr   error
+		wantRes []*TodoItem
+		wantErr bool
+	}{
+		{
+			desc:    "Empty response",
+			input:   &NoParams{},
+			dsResp:  []*models.TodoItem{},
+			dsErr:   nil,
+			wantRes: nil,
+			wantErr: false,
+		},
+		{
+			desc:  "one todo item",
+			input: &NoParams{},
+			dsResp: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+			},
+			dsErr: nil,
+			wantRes: []*TodoItem{
+				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+			},
+			wantErr: false,
+		},
+		{
+			desc:  "multiple todo items",
+			input: &NoParams{},
+			dsResp: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 3, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 4, UserID: 3, Todo: "Task 1"},
+			},
+			dsErr: nil,
+			wantRes: []*TodoItem{
+				&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&TodoItem{TodoID: 2, UserID: 1, Todo: "Task 2"},
+				&TodoItem{TodoID: 3, UserID: 2, Todo: "Task 1"},
+				&TodoItem{TodoID: 4, UserID: 3, Todo: "Task 1"},
+			},
+			wantErr: false,
+		},
+		{
+			desc:    "Error response",
+			input:   &NoParams{},
+			dsResp:  nil,
+			dsErr:   errors.New("Invalid"),
+			wantRes: nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testData {
+
+		fakeDS := testingDB{}
+		server := Server{DS: &fakeDS, WaitingTime: testingWaitingTime}
+
+		fakeDS.todosResp = tc.dsResp
+		fakeDS.err = tc.dsErr
+
+		stream := &testing_TodoService_GetAllTodosStreamingServer{}
+		err := server.GetAllTodosStreaming(tc.input, stream)
+
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("[%q]: DeleteUserTodos() got success, want an error", tc.desc)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("[%q]: DeleteUserTodos() got error %v, want success", tc.desc, err)
+			continue
+		}
+
+		if diff := cmp.Diff(tc.wantRes, stream.Results, protocmp.Transform()); diff != "" {
 			t.Errorf("[%q]: GetAllTodosStreaming() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 			continue
 		}
