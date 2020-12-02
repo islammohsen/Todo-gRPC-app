@@ -29,9 +29,17 @@ func (this *testingDB) InsertTodoItem(item *models.TodoItem) (int32, error) {
 func (this *testingDB) GetAllTodos() ([]*models.TodoItem, error) {
 	return this.todosResp, this.err
 }
+
 func (this *testingDB) GetUserTodos(userID int32) ([]*models.TodoItem, error) {
-	return this.todosResp, this.err
+	var todos []*models.TodoItem
+	for _, todo := range this.data {
+		if todo.UserID == userID {
+			todos = append(todos, todo)
+		}
+	}
+	return todos, this.err
 }
+
 func (this *testingDB) DeleteUserTodos(userID int32) error {
 	if this.err != nil {
 		return this.err
@@ -572,4 +580,155 @@ func TestGetAllTodosStreaming2(t *testing.T) {
 		}
 	}
 
+}
+
+type testing_TodoService_GetUserTodosServer struct {
+	grpc.ServerStream
+	Results []*GetUserTodosResponse
+	inputs  []*GetUserTodosRequest
+}
+
+func (this *testing_TodoService_GetUserTodosServer) Send(item *GetUserTodosResponse) error {
+	this.Results = append(this.Results, item)
+	return nil
+}
+
+func (this *testing_TodoService_GetUserTodosServer) Recv() (*GetUserTodosRequest, error) {
+	if len(this.inputs) == 0 {
+		return nil, io.EOF
+	}
+	item := this.inputs[0]
+	this.inputs = this.inputs[1:]
+	return item, nil
+}
+
+func TestGetUserTodos(t *testing.T) {
+	testData := []struct {
+		desc    string
+		input   []*GetUserTodosRequest
+		dsData  []*models.TodoItem
+		dsErr   error
+		wantRes []*GetUserTodosResponse
+		wantErr bool
+	}{
+		{
+			desc: "Empty responses",
+			input: []*GetUserTodosRequest{
+				&GetUserTodosRequest{UserID: 4},
+				&GetUserTodosRequest{UserID: 5},
+				&GetUserTodosRequest{UserID: 6},
+			},
+			dsData: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 4, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			},
+			dsErr: nil,
+			wantRes: []*GetUserTodosResponse{
+				&GetUserTodosResponse{Items: nil},
+				&GetUserTodosResponse{Items: nil},
+				&GetUserTodosResponse{Items: nil},
+			},
+			wantErr: false,
+		},
+		{
+			desc: "one user response",
+			input: []*GetUserTodosRequest{
+				&GetUserTodosRequest{UserID: 4},
+				&GetUserTodosRequest{UserID: 1},
+				&GetUserTodosRequest{UserID: 6},
+			},
+			dsData: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 4, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			},
+			dsErr: nil,
+			wantRes: []*GetUserTodosResponse{
+				&GetUserTodosResponse{Items: nil},
+				&GetUserTodosResponse{
+					Items: []*TodoItem{
+						&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+						&TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"},
+						&TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+					},
+				},
+				&GetUserTodosResponse{Items: nil},
+			},
+			wantErr: false,
+		},
+		{
+			desc: "multiple user response",
+			input: []*GetUserTodosRequest{
+				&GetUserTodosRequest{UserID: 1},
+				&GetUserTodosRequest{UserID: 2},
+				&GetUserTodosRequest{UserID: 3},
+			},
+			dsData: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 4, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			},
+			dsErr: nil,
+			wantRes: []*GetUserTodosResponse{
+				&GetUserTodosResponse{
+					Items: []*TodoItem{
+						&TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+						&TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"},
+						&TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+					},
+				},
+				&GetUserTodosResponse{
+					Items: []*TodoItem{
+						&TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+						&TodoItem{TodoID: 4, UserID: 2, Todo: "Task 2"},
+					},
+				},
+				&GetUserTodosResponse{
+					Items: []*TodoItem{
+						&TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range testData {
+
+		fakeDS := testingDB{}
+		server := Server{DS: &fakeDS, WaitingTime: testingWaitingTime}
+
+		fakeDS.data = tc.dsData
+		fakeDS.err = tc.dsErr
+
+		stream := &testing_TodoService_GetUserTodosServer{inputs: tc.input}
+		err := server.GetUserTodos(stream)
+
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("[%q]: GetAllTodosStreaming2() got success, want an error", tc.desc)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("[%q]: GetAllTodosStreaming2() got error %v, want success", tc.desc, err)
+			continue
+		}
+
+		if diff := cmp.Diff(tc.wantRes, stream.Results, protocmp.Transform()); diff != "" {
+			t.Errorf("[%q]: GetAllTodosStreaming2() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+			continue
+		}
+	}
 }

@@ -78,7 +78,7 @@ func (s *Server) GetAllTodosStreaming(message *NoParams, stream TodoService_GetA
 //GetUserTodos function to get a stream of user ids and return a stream of todoitems
 func (s *Server) GetUserTodos(stream TodoService_GetUserTodosServer) error {
 	log.Println("Received get user todos request")
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(s.WaitingTime)
 	defer ticker.Stop()
 	for {
 		message, err := stream.Recv()
