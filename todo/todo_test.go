@@ -716,18 +716,18 @@ func TestGetUserTodos(t *testing.T) {
 
 		if tc.wantErr {
 			if err == nil {
-				t.Errorf("[%q]: GetAllTodosStreaming2() got success, want an error", tc.desc)
+				t.Errorf("[%q]: GetUserTodos() got success, want an error", tc.desc)
 			}
 			continue
 		}
 
 		if err != nil {
-			t.Errorf("[%q]: GetAllTodosStreaming2() got error %v, want success", tc.desc, err)
+			t.Errorf("[%q]: GetUserTodos() got error %v, want success", tc.desc, err)
 			continue
 		}
 
 		if diff := cmp.Diff(tc.wantRes, stream.Results, protocmp.Transform()); diff != "" {
-			t.Errorf("[%q]: GetAllTodosStreaming2() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+			t.Errorf("[%q]: GetUserTodos() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 			continue
 		}
 	}
