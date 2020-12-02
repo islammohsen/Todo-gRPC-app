@@ -120,8 +120,8 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 	return &DeleteUserTodosResponse{}, nil
 }
 
-func computeTodoHash(ctx context.Context, item *TodoItem) (*TodoItemWithHash, error) {
-	const waitingTime = 500 * time.Millisecond
+func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (*TodoItemWithHash, error) {
+	waitingTime := s.WaitingTime / 2
 	select {
 	case <-time.After(waitingTime):
 		hashedItem := &TodoItemWithHash{Item: item}
@@ -154,7 +154,7 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 		wg.Add(1)
 		go func(item *TodoItem) {
 			defer wg.Done()
-			hashedTodo, err := computeTodoHash(childContext, item)
+			hashedTodo, err := s.computeTodoHash(childContext, item)
 			if err != nil {
 				mu.Lock()
 				if hashingError == nil {

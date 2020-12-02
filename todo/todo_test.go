@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sort"
 	"testing"
 	"time"
 	"todo-app/models"
@@ -728,6 +729,114 @@ func TestGetUserTodos(t *testing.T) {
 
 		if diff := cmp.Diff(tc.wantRes, stream.Results, protocmp.Transform()); diff != "" {
 			t.Errorf("[%q]: GetUserTodos() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
+			continue
+		}
+	}
+}
+
+func TestGetUserTodoItemsWithHash(t *testing.T) {
+	testData := []struct {
+		desc    string
+		input   *GetUserTodoItemsWithHashRequest
+		timeOut time.Duration
+		dsData  []*models.TodoItem
+		dsErr   error
+		wantRes *GetUserTodoItemsWithHashResponse
+		wantErr bool
+	}{
+		{
+			desc:    "Empty response",
+			input:   &GetUserTodoItemsWithHashRequest{UserID: 4},
+			timeOut: testingWaitingTime,
+			dsData: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 4, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			},
+			dsErr: nil,
+			wantRes: &GetUserTodoItemsWithHashResponse{
+				Items: nil,
+			},
+			wantErr: false,
+		},
+		{
+			desc:    "user todos response",
+			input:   &GetUserTodoItemsWithHashRequest{UserID: 1},
+			timeOut: testingWaitingTime,
+			dsData: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 4, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			},
+			dsErr: nil,
+			wantRes: &GetUserTodoItemsWithHashResponse{
+				Items: []*TodoItemWithHash{
+					&TodoItemWithHash{Item: &TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"}, Hash: 2},
+					&TodoItemWithHash{Item: &TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"}, Hash: 4},
+					&TodoItemWithHash{Item: &TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"}, Hash: 7},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			desc:    "time out",
+			input:   &GetUserTodoItemsWithHashRequest{UserID: 1},
+			timeOut: testingWaitingTime / 3,
+			dsData: []*models.TodoItem{
+				&models.TodoItem{TodoID: 1, UserID: 1, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 2, UserID: 2, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 3, UserID: 1, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 4, UserID: 2, Todo: "Task 2"},
+				&models.TodoItem{TodoID: 5, UserID: 3, Todo: "Task 1"},
+				&models.TodoItem{TodoID: 6, UserID: 1, Todo: "Task 3"},
+			},
+			dsErr: nil,
+			wantRes: &GetUserTodoItemsWithHashResponse{
+				Items: nil,
+			},
+			wantErr: true,
+		},
+	}
+
+	ctx := context.Background()
+
+	for _, tc := range testData {
+
+		fakeDS := testingDB{}
+		server := Server{DS: &fakeDS, WaitingTime: testingWaitingTime}
+
+		fakeDS.data = tc.dsData
+		fakeDS.err = tc.dsErr
+
+		childCtx, cancel := context.WithTimeout(ctx, tc.timeOut)
+		defer cancel()
+
+		resp, err := server.GetUserTodoItemsWithHash(childCtx, tc.input)
+
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("[%q]: GetUserTodoItemsWithHash() got success, want an error", tc.desc)
+			}
+			continue
+		}
+
+		if err != nil {
+			t.Errorf("[%q]: GetUserTodoItemsWithHash() got error %v, want success", tc.desc, err)
+			continue
+		}
+
+		sort.Slice(resp.Items, func(i, j int) bool {
+			return resp.Items[i].Item.TodoID < resp.Items[j].Item.TodoID
+		})
+
+		if diff := cmp.Diff(tc.wantRes, resp, protocmp.Transform()); diff != "" {
+			t.Errorf("[%q]: GetUserTodoItemsWithHash() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 			continue
 		}
 	}
