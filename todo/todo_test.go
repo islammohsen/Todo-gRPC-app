@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"sort"
 	"testing"
 	"time"
 	"todo-app/models"
@@ -831,11 +830,11 @@ func TestGetUserTodoItemsWithHash(t *testing.T) {
 			continue
 		}
 
-		sort.Slice(resp.Items, func(i, j int) bool {
-			return resp.Items[i].Item.TodoID < resp.Items[j].Item.TodoID
-		})
+		sortTodos := func(x, y *TodoItemWithHash) bool {
+			return x.Item.TodoID < y.Item.TodoID
+		}
 
-		if diff := cmp.Diff(tc.wantRes, resp, protocmp.Transform()); diff != "" {
+		if diff := cmp.Diff(tc.wantRes, resp, protocmp.SortRepeated(sortTodos), protocmp.Transform()); diff != "" {
 			t.Errorf("[%q]: GetUserTodoItemsWithHash() returned unexpected diff (-want, +got):\n%s", tc.desc, diff)
 			continue
 		}
