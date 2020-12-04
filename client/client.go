@@ -138,7 +138,7 @@ func main() {
 
 	//add todo
 	//command : !add userID todoItem
-	if os.Args[1] == "!add" {
+	if os.Args[1] == "add" {
 		if len(os.Args) <= 3 {
 			log.Println("Invalid arguments")
 			return
@@ -154,19 +154,19 @@ func main() {
 
 	//get all todos
 	//command : !get_all
-	if os.Args[1] == "!get_all" {
+	if os.Args[1] == "get_all" {
 		getAllTodos(ctx, todoService)
 	}
 
 	//get all todos streaming
 	//command : !get_all_streaming
-	if os.Args[1] == "!get_all_streaming" {
+	if os.Args[1] == "get_all_streaming" {
 		getAllTodosStreaming(ctx, todoService)
 	}
 
 	//get_user_todos
 	//command : !get_user_todos
-	if os.Args[1] == "!get_user_todos" {
+	if os.Args[1] == "get_user_todos" {
 		if len(os.Args) <= 2 {
 			log.Println("Invalid arguments")
 			return
@@ -189,7 +189,7 @@ func main() {
 
 	//delete user todos
 	//command : !delete userID
-	if os.Args[1] == "!delete" {
+	if os.Args[1] == "delete" {
 		if len(os.Args) <= 2 {
 			log.Println("Invalid arguments")
 			return
@@ -202,7 +202,7 @@ func main() {
 		deleteUserTodos(ctx, todoService, int32(userID))
 	}
 
-	if os.Args[1] == "!get_user_todos_hash" {
+	if os.Args[1] == "get_user_todos_hash" {
 		if len(os.Args) < 4 {
 			log.Println("Invalid arguments")
 			return
