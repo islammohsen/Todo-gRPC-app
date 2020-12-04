@@ -120,68 +120,68 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 	return &DeleteUserTodosResponse{}, nil
 }
 
-func computeTodoHash(ctx context.Context, item *TodoItem, waitingTime time.Duration) (*TodoItemWithHash, error) {
+func computeTodoHash(ctx context.Context, item *TodoItem, waitingTime time.Duration) (int32, error) {
 	select {
 	case <-time.After(waitingTime):
-		hashedItem := &TodoItemWithHash{Item: item}
-		hashedItem.Hash = (item.TodoID + item.UserID) % 291391
-		return hashedItem, nil
+		return (item.TodoID + item.UserID) % 291391, nil
 	//context timed out or canceld
 	case <-ctx.Done():
-		return nil, errors.New("Canceld or Timed out")
+		return 0, errors.New("Canceld or Timed out")
 	}
 }
 
-func parallel(list []func()) {
+func parallel(list []func() error) error {
+	mu := sync.Mutex{}
+	var processError error
 	wg := sync.WaitGroup{}
 	for _, f := range list {
 		wg.Add(1)
-		go func(f func()) {
-			f()
+		go func(f func() error) {
+			err := f()
+			if err != nil {
+				mu.Lock()
+				processError = err
+				mu.Unlock()
+			}
 			wg.Done()
 		}(f)
 	}
 	wg.Wait()
+	return processError
 }
 
-func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem, time.Duration) (*TodoItemWithHash, error)) ([]*TodoItemWithHash, error) {
+func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem, time.Duration) (int32, error)) ([]*TodoItemWithHash, error) {
 
 	var response []*TodoItemWithHash
-
-	mu := sync.Mutex{}
 
 	childContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var hashingError error
-
-	f := func(item *TodoItem) {
-		hashedTodo, err := process(childContext, item, s.WaitingTime/2)
+	f := func(item *TodoItemWithHash) error {
+		hash, err := process(childContext, item.Item, s.WaitingTime/2)
 		if err != nil {
-			mu.Lock()
-			if hashingError == nil {
-				hashingError = err
-			}
-			mu.Unlock()
 			cancel()
-		} else {
-			mu.Lock()
-			response = append(response, hashedTodo)
-			mu.Unlock()
+			return err
 		}
+		item.Hash = hash
+		return nil
 	}
 
-	var list []func()
+	var list []func() error
 	for _, todo := range todos {
-		todo := todo
-		list = append(list, func() { f(toProtoTodoItem(todo)) })
+		item := &TodoItemWithHash{Item: toProtoTodoItem(todo)}
+		response = append(response, item)
+		list = append(list, func() error {
+			err := f(item)
+			return err
+		})
 	}
-	parallel(list)
+	err := parallel(list)
 
-	if hashingError != nil {
-		return nil, hashingError
+	if err != nil {
+		return nil, err
 	}
-	return response, nil
+	return response, err
 }
 
 func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
