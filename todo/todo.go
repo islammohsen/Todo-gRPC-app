@@ -120,8 +120,7 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 	return &DeleteUserTodosResponse{}, nil
 }
 
-func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (*TodoItemWithHash, error) {
-	waitingTime := s.WaitingTime / 2
+func computeTodoHash(ctx context.Context, item *TodoItem, waitingTime time.Duration) (*TodoItemWithHash, error) {
 	select {
 	case <-time.After(waitingTime):
 		hashedItem := &TodoItemWithHash{Item: item}
@@ -133,7 +132,7 @@ func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (*TodoItem
 	}
 }
 
-func (s *Server) parallel(ctx context.Context, todos []*models.TodoItem) ([]*TodoItemWithHash, error) {
+func (s *Server) parallel(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem, time.Duration) (*TodoItemWithHash, error)) ([]*TodoItemWithHash, error) {
 
 	var response []*TodoItemWithHash
 
@@ -149,7 +148,7 @@ func (s *Server) parallel(ctx context.Context, todos []*models.TodoItem) ([]*Tod
 		wg.Add(1)
 		go func(item *TodoItem) {
 			defer wg.Done()
-			hashedTodo, err := s.computeTodoHash(childContext, item)
+			hashedTodo, err := process(childContext, item, s.WaitingTime/2)
 			if err != nil {
 				mu.Lock()
 				if hashingError == nil {
@@ -189,7 +188,7 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 
 	response := &GetUserTodoItemsWithHashResponse{}
 
-	items, err := s.parallel(ctx, todos)
+	items, err := s.parallel(ctx, todos, computeTodoHash)
 	if err != nil {
 		return nil, err
 	}
