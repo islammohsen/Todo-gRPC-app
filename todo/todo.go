@@ -121,9 +121,10 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 }
 
 func computeTodoHash(ctx context.Context, item *TodoItem, waitingTime time.Duration) (int32, error) {
+	const mod = 291391
 	select {
 	case <-time.After(waitingTime):
-		return (item.TodoID + item.UserID) % 291391, nil
+		return (item.TodoID + item.UserID) % mod, nil
 	//context timed out or canceld
 	case <-ctx.Done():
 		return 0, errors.New("Canceld or Timed out")
@@ -152,28 +153,28 @@ func parallel(list []func() error) error {
 
 func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem, time.Duration) (int32, error)) ([]*TodoItemWithHash, error) {
 
-	var response []*TodoItemWithHash
+	response := make([]*TodoItemWithHash, len(todos))
 
 	childContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	f := func(item *TodoItemWithHash) error {
-		hash, err := process(childContext, item.Item, s.WaitingTime/2)
-		if err != nil {
-			cancel()
-			return err
-		}
-		item.Hash = hash
-		return nil
+	f := func(idx int, item *TodoItem) error {
+		hash, err := process(childContext, item, s.WaitingTime/2)
+		response[idx] = &TodoItemWithHash{Item: item, Hash: hash}
+		return err
 	}
 
 	var list []func() error
-	for _, todo := range todos {
-		item := &TodoItemWithHash{Item: toProtoTodoItem(todo)}
-		response = append(response, item)
+	for idx, todo := range todos {
+		idx := idx
+		todo := todo
 		list = append(list, func() error {
-			err := f(item)
-			return err
+			err := f(idx, toProtoTodoItem(todo))
+			if err != nil {
+				cancel()
+				return err
+			}
+			return nil
 		})
 	}
 	err := parallel(list)
@@ -181,7 +182,7 @@ func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, p
 	if err != nil {
 		return nil, err
 	}
-	return response, err
+	return response, nil
 }
 
 func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
@@ -202,7 +203,7 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 		return nil, err
 	}
 	response.Items = items
-	log.Println("Response ", response)
+
 	select {
 	case <-ctx.Done():
 		return nil, errors.New("Timed out")
