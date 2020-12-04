@@ -133,21 +133,16 @@ func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (*TodoItem
 	}
 }
 
-func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
+func (s *Server) parallel(ctx context.Context, todos []*models.TodoItem) ([]*TodoItemWithHash, error) {
 
-	log.Println("Received get user todo items with hash request", message)
+	var response []*TodoItemWithHash
 
-	userID := message.UserID
-	todos, err := s.DS.GetUserTodos(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetUserTodoItemsWithHashResponse{}
 	wg := &sync.WaitGroup{}
 	mu := sync.Mutex{}
+
 	childContext, cancel := context.WithCancel(ctx)
 	defer cancel()
+
 	var hashingError error
 
 	for _, todo := range todos {
@@ -164,12 +159,11 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 				cancel()
 			} else {
 				mu.Lock()
-				response.Items = append(response.Items, hashedTodo)
+				response = append(response, hashedTodo)
 				mu.Unlock()
 			}
 		}(toProtoTodoItem(todo))
 	}
-
 	wg.Wait()
 
 	select {
@@ -177,6 +171,33 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 		return nil, errors.New("Timed out")
 	case <-childContext.Done():
 		return nil, hashingError
+	default:
+		return response, nil
+	}
+}
+
+func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
+
+	log.Println("Received get user todo items with hash request", message)
+
+	userID := message.UserID
+	todos, err := s.DS.GetUserTodos(userID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserTodoItemsWithHashResponse{}
+
+	items, err := s.parallel(ctx, todos)
+	if err != nil {
+		return nil, err
+	}
+	response.Items = items
+
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("Timed out")
 	default:
 		return response, nil
 	}
