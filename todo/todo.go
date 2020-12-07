@@ -133,15 +133,20 @@ func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (int32, er
 	}
 }
 
-func parallel(list []func() error, cancel context.CancelFunc) error {
+func parallel(ctx context.Context, list []func(context.Context) error) error {
+
+	childContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	mu := sync.Mutex{}
 	var processError error
 	wg := sync.WaitGroup{}
+
 	for _, f := range list {
 		wg.Add(1)
-		go func(f func() error) {
+		go func(f func(context.Context) error) {
 			defer wg.Done()
-			err := f()
+			err := f(childContext)
 			if err != nil {
 				mu.Lock()
 				if processError == nil {
@@ -160,24 +165,21 @@ func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, p
 
 	response := make([]*TodoItemWithHash, len(todos))
 
-	childContext, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	f := func(idx int, item *TodoItem) error {
-		hash, err := process(childContext, item)
+	f := func(ctx context.Context, idx int, item *TodoItem) error {
+		hash, err := process(ctx, item)
 		response[idx] = &TodoItemWithHash{Item: item, Hash: hash}
 		return err
 	}
 
-	var list []func() error
+	var list []func(context.Context) error
 	for idx, todo := range todos {
 		idx := idx
 		todo := todo
-		list = append(list, func() error {
-			return f(idx, toProtoTodoItem(todo))
+		list = append(list, func(ctx context.Context) error {
+			return f(ctx, idx, toProtoTodoItem(todo))
 		})
 	}
-	err := parallel(list, cancel)
+	err := parallel(ctx, list)
 
 	if err != nil {
 		return nil, err
