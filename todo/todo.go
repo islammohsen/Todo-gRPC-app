@@ -10,6 +10,8 @@ import (
 	"todo-app/models"
 )
 
+const mod = 291391
+
 //DataStore defining functions to be implemented to store user todos
 type DataStore interface {
 	InsertTodoItem(item *models.TodoItem) (int32, error)
@@ -122,7 +124,6 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 
 func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (int32, error) {
 	waitingTime := s.WaitingTime / 2
-	const mod = 291391
 	select {
 	case <-time.After(waitingTime):
 		return (item.TodoID + item.UserID) % mod, nil
@@ -132,20 +133,23 @@ func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (int32, er
 	}
 }
 
-func parallel(list []func() error) error {
+func parallel(list []func() error, cancel context.CancelFunc) error {
 	mu := sync.Mutex{}
 	var processError error
 	wg := sync.WaitGroup{}
 	for _, f := range list {
 		wg.Add(1)
 		go func(f func() error) {
+			defer wg.Done()
 			err := f()
 			if err != nil {
 				mu.Lock()
-				processError = err
+				if processError == nil {
+					processError = err
+				}
+				cancel()
 				mu.Unlock()
 			}
-			wg.Done()
 		}(f)
 	}
 	wg.Wait()
@@ -170,15 +174,10 @@ func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, p
 		idx := idx
 		todo := todo
 		list = append(list, func() error {
-			err := f(idx, toProtoTodoItem(todo))
-			if err != nil {
-				cancel()
-				return err
-			}
-			return nil
+			return f(idx, toProtoTodoItem(todo))
 		})
 	}
-	err := parallel(list)
+	err := parallel(list, cancel)
 
 	if err != nil {
 		return nil, err
