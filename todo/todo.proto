@@ -64,4 +64,5 @@ service TodoService {
     rpc GetUserTodos(stream GetUserTodosRequest) returns (stream GetUserTodosResponse);
     rpc DeleteUserTodos(DeleteUserTodosRequest) returns(DeleteUserTodosResponse);
     rpc GetUserTodoItemsWithHash(GetUserTodoItemsWithHashRequest) returns(GetUserTodoItemsWithHashResponse);
+    rpc GetUserTodoItemsWithHashAppend(GetUserTodoItemsWithHashRequest) returns(GetUserTodoItemsWithHashResponse);
 }

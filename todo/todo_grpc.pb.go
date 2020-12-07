@@ -23,6 +23,7 @@ type TodoServiceClient interface {
 	GetUserTodos(ctx context.Context, opts ...grpc.CallOption) (TodoService_GetUserTodosClient, error)
 	DeleteUserTodos(ctx context.Context, in *DeleteUserTodosRequest, opts ...grpc.CallOption) (*DeleteUserTodosResponse, error)
 	GetUserTodoItemsWithHash(ctx context.Context, in *GetUserTodoItemsWithHashRequest, opts ...grpc.CallOption) (*GetUserTodoItemsWithHashResponse, error)
+	GetUserTodoItemsWithHashAppend(ctx context.Context, in *GetUserTodoItemsWithHashRequest, opts ...grpc.CallOption) (*GetUserTodoItemsWithHashResponse, error)
 }
 
 type todoServiceClient struct {
@@ -52,7 +53,7 @@ func (c *todoServiceClient) GetAllTodos(ctx context.Context, in *NoParams, opts 
 }
 
 func (c *todoServiceClient) GetAllTodosStreaming(ctx context.Context, in *NoParams, opts ...grpc.CallOption) (TodoService_GetAllTodosStreamingClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_TodoService_serviceDesc.Streams[0], "/todo.TodoService/GetAllTodosStreaming", opts...)
+	stream, err := c.cc.NewStream(ctx, &TodoService_ServiceDesc.Streams[0], "/todo.TodoService/GetAllTodosStreaming", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (x *todoServiceGetAllTodosStreamingClient) Recv() (*TodoItem, error) {
 }
 
 func (c *todoServiceClient) GetUserTodos(ctx context.Context, opts ...grpc.CallOption) (TodoService_GetUserTodosClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_TodoService_serviceDesc.Streams[1], "/todo.TodoService/GetUserTodos", opts...)
+	stream, err := c.cc.NewStream(ctx, &TodoService_ServiceDesc.Streams[1], "/todo.TodoService/GetUserTodos", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +133,15 @@ func (c *todoServiceClient) GetUserTodoItemsWithHash(ctx context.Context, in *Ge
 	return out, nil
 }
 
+func (c *todoServiceClient) GetUserTodoItemsWithHashAppend(ctx context.Context, in *GetUserTodoItemsWithHashRequest, opts ...grpc.CallOption) (*GetUserTodoItemsWithHashResponse, error) {
+	out := new(GetUserTodoItemsWithHashResponse)
+	err := c.cc.Invoke(ctx, "/todo.TodoService/GetUserTodoItemsWithHashAppend", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TodoServiceServer is the server API for TodoService service.
 // All implementations must embed UnimplementedTodoServiceServer
 // for forward compatibility
@@ -142,6 +152,7 @@ type TodoServiceServer interface {
 	GetUserTodos(TodoService_GetUserTodosServer) error
 	DeleteUserTodos(context.Context, *DeleteUserTodosRequest) (*DeleteUserTodosResponse, error)
 	GetUserTodoItemsWithHash(context.Context, *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error)
+	GetUserTodoItemsWithHashAppend(context.Context, *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error)
 	mustEmbedUnimplementedTodoServiceServer()
 }
 
@@ -167,6 +178,9 @@ func (UnimplementedTodoServiceServer) DeleteUserTodos(context.Context, *DeleteUs
 func (UnimplementedTodoServiceServer) GetUserTodoItemsWithHash(context.Context, *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserTodoItemsWithHash not implemented")
 }
+func (UnimplementedTodoServiceServer) GetUserTodoItemsWithHashAppend(context.Context, *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserTodoItemsWithHashAppend not implemented")
+}
 func (UnimplementedTodoServiceServer) mustEmbedUnimplementedTodoServiceServer() {}
 
 // UnsafeTodoServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -177,7 +191,7 @@ type UnsafeTodoServiceServer interface {
 }
 
 func RegisterTodoServiceServer(s grpc.ServiceRegistrar, srv TodoServiceServer) {
-	s.RegisterService(&_TodoService_serviceDesc, srv)
+	s.RegisterService(&TodoService_ServiceDesc, srv)
 }
 
 func _TodoService_AddTodo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -299,7 +313,28 @@ func _TodoService_GetUserTodoItemsWithHash_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
-var _TodoService_serviceDesc = grpc.ServiceDesc{
+func _TodoService_GetUserTodoItemsWithHashAppend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserTodoItemsWithHashRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TodoServiceServer).GetUserTodoItemsWithHashAppend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/todo.TodoService/GetUserTodoItemsWithHashAppend",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TodoServiceServer).GetUserTodoItemsWithHashAppend(ctx, req.(*GetUserTodoItemsWithHashRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// TodoService_ServiceDesc is the grpc.ServiceDesc for TodoService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var TodoService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "todo.TodoService",
 	HandlerType: (*TodoServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
@@ -318,6 +353,10 @@ var _TodoService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserTodoItemsWithHash",
 			Handler:    _TodoService_GetUserTodoItemsWithHash_Handler,
+		},
+		{
+			MethodName: "GetUserTodoItemsWithHashAppend",
+			Handler:    _TodoService_GetUserTodoItemsWithHashAppend_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
