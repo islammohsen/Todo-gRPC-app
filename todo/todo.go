@@ -120,7 +120,8 @@ func (s *Server) DeleteUserTodos(ctx context.Context, message *DeleteUserTodosRe
 	return &DeleteUserTodosResponse{}, nil
 }
 
-func computeTodoHash(ctx context.Context, item *TodoItem, waitingTime time.Duration) (int32, error) {
+func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (int32, error) {
+	waitingTime := s.WaitingTime / 2
 	const mod = 291391
 	select {
 	case <-time.After(waitingTime):
@@ -151,7 +152,7 @@ func parallel(list []func() error) error {
 	return processError
 }
 
-func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem, time.Duration) (int32, error)) ([]*TodoItemWithHash, error) {
+func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
 
 	response := make([]*TodoItemWithHash, len(todos))
 
@@ -159,7 +160,7 @@ func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, p
 	defer cancel()
 
 	f := func(idx int, item *TodoItem) error {
-		hash, err := process(childContext, item, s.WaitingTime/2)
+		hash, err := process(childContext, item)
 		response[idx] = &TodoItemWithHash{Item: item, Hash: hash}
 		return err
 	}
@@ -198,7 +199,7 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 
 	response := &GetUserTodoItemsWithHashResponse{}
 
-	items, err := s.transformTodos(ctx, todos, computeTodoHash)
+	items, err := s.transformTodos(ctx, todos, s.computeTodoHash)
 	if err != nil {
 		return nil, err
 	}
