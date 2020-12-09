@@ -138,27 +138,22 @@ func parallel(ctx context.Context, list []func(context.Context) error, ch chan e
 	childContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	mu := sync.Mutex{}
-	var processError error
-	wg := sync.WaitGroup{}
+	errorChannel := make(chan error, len(list))
 
 	for _, f := range list {
-		wg.Add(1)
 		go func(f func(context.Context) error) {
-			defer wg.Done()
-			err := f(childContext)
-			if err != nil {
-				mu.Lock()
-				if processError == nil {
-					processError = err
-				}
-				cancel()
-				mu.Unlock()
-			}
+			errorChannel <- f(childContext)
 		}(f)
 	}
-	wg.Wait()
-	ch <- processError
+
+	for i := 0; i < len(list); i++ {
+		err := <-errorChannel
+		if err != nil {
+			ch <- err
+			return
+		}
+	}
+	ch <- nil
 }
 
 func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
