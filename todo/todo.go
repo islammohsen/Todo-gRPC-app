@@ -133,7 +133,7 @@ func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (int32, er
 	}
 }
 
-func parallel(ctx context.Context, list []func(context.Context) error) error {
+func parallel(ctx context.Context, list []func(context.Context) error, ch chan error) {
 
 	childContext, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -158,7 +158,7 @@ func parallel(ctx context.Context, list []func(context.Context) error) error {
 		}(f)
 	}
 	wg.Wait()
-	return processError
+	ch <- processError
 }
 
 func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
@@ -179,89 +179,10 @@ func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, p
 			return f(ctx, idx, toProtoTodoItem(todo))
 		})
 	}
-	err := parallel(ctx, list)
 
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
-}
-
-func (s *Server) transformTodosPointer(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
-
-	response := make([]*TodoItemWithHash, len(todos))
-
-	f := func(ctx context.Context, item *TodoItemWithHash) error {
-		hash, err := process(ctx, item.Item)
-		item.Hash = hash
-		return err
-	}
-
-	var list []func(context.Context) error
-	for idx, todo := range todos {
-		idx := idx
-		response[idx] = &TodoItemWithHash{Item: toProtoTodoItem(todo)}
-		list = append(list, func(ctx context.Context) error {
-			return f(ctx, response[idx])
-		})
-	}
-	err := parallel(ctx, list)
-
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
-}
-
-func (s *Server) transformTodosAppend(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
-
-	mu := sync.Mutex{}
-	var response []*TodoItemWithHash
-
-	f := func(ctx context.Context, item *TodoItem) error {
-		hash, err := process(ctx, item)
-		mu.Lock()
-		response = append(response, &TodoItemWithHash{Item: item, Hash: hash})
-		mu.Unlock()
-		return err
-	}
-
-	var list []func(context.Context) error
-	for _, todo := range todos {
-		todo := todo
-		list = append(list, func(ctx context.Context) error {
-			return f(ctx, toProtoTodoItem(todo))
-		})
-	}
-	err := parallel(ctx, list)
-
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
-}
-
-func (s *Server) transformTodosAppendPreAllocation(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
-
-	mu := sync.Mutex{}
-	response := make([]*TodoItemWithHash, 0, len(todos))
-
-	f := func(ctx context.Context, item *TodoItem) error {
-		hash, err := process(ctx, item)
-		mu.Lock()
-		response = append(response, &TodoItemWithHash{Item: item, Hash: hash})
-		mu.Unlock()
-		return err
-	}
-
-	var list []func(context.Context) error
-	for _, todo := range todos {
-		todo := todo
-		list = append(list, func(ctx context.Context) error {
-			return f(ctx, toProtoTodoItem(todo))
-		})
-	}
-	err := parallel(ctx, list)
+	parallelChannel := make(chan error)
+	go parallel(ctx, list, parallelChannel)
+	err := <-parallelChannel
 
 	if err != nil {
 		return nil, err
@@ -296,6 +217,93 @@ func (s *Server) GetUserTodoItemsWithHash(ctx context.Context, message *GetUserT
 	}
 }
 
+func (s *Server) transformTodosPointer(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
+
+	response := make([]*TodoItemWithHash, len(todos))
+
+	f := func(ctx context.Context, item *TodoItemWithHash) error {
+		hash, err := process(ctx, item.Item)
+		item.Hash = hash
+		return err
+	}
+
+	var list []func(context.Context) error
+	for idx, todo := range todos {
+		idx := idx
+		response[idx] = &TodoItemWithHash{Item: toProtoTodoItem(todo)}
+		list = append(list, func(ctx context.Context) error {
+			return f(ctx, response[idx])
+		})
+	}
+
+	parallelChannel := make(chan error)
+	go parallel(ctx, list, parallelChannel)
+	err := <-parallelChannel
+
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (s *Server) GetUserTodoItemsWithHashPointer(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
+
+	log.Println("Received get user todo items with hash request", message)
+
+	userID := message.UserID
+	todos, err := s.DS.GetUserTodos(userID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserTodoItemsWithHashResponse{}
+
+	items, err := s.transformTodosPointer(ctx, todos, s.computeTodoHash)
+	if err != nil {
+		return nil, err
+	}
+	response.Items = items
+
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("Timed out")
+	default:
+		return response, nil
+	}
+}
+
+func (s *Server) transformTodosAppend(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
+
+	mu := sync.Mutex{}
+	var response []*TodoItemWithHash
+
+	f := func(ctx context.Context, item *TodoItem) error {
+		hash, err := process(ctx, item)
+		mu.Lock()
+		response = append(response, &TodoItemWithHash{Item: item, Hash: hash})
+		mu.Unlock()
+		return err
+	}
+
+	var list []func(context.Context) error
+	for _, todo := range todos {
+		todo := todo
+		list = append(list, func(ctx context.Context) error {
+			return f(ctx, toProtoTodoItem(todo))
+		})
+	}
+
+	parallelChannel := make(chan error)
+	go parallel(ctx, list, parallelChannel)
+	err := <-parallelChannel
+
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
 func (s *Server) GetUserTodoItemsWithHashAppend(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
 
 	log.Println("Received get user todo items with hash request", message)
@@ -321,6 +329,37 @@ func (s *Server) GetUserTodoItemsWithHashAppend(ctx context.Context, message *Ge
 	default:
 		return response, nil
 	}
+}
+
+func (s *Server) transformTodosAppendPreAllocation(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
+
+	mu := sync.Mutex{}
+	response := make([]*TodoItemWithHash, 0, len(todos))
+
+	f := func(ctx context.Context, item *TodoItem) error {
+		hash, err := process(ctx, item)
+		mu.Lock()
+		response = append(response, &TodoItemWithHash{Item: item, Hash: hash})
+		mu.Unlock()
+		return err
+	}
+
+	var list []func(context.Context) error
+	for _, todo := range todos {
+		todo := todo
+		list = append(list, func(ctx context.Context) error {
+			return f(ctx, toProtoTodoItem(todo))
+		})
+	}
+
+	parallelChannel := make(chan error)
+	go parallel(ctx, list, parallelChannel)
+	err := <-parallelChannel
+
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 func (s *Server) GetUserTodoItemsWithHashAppendPreAllocation(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
@@ -350,7 +389,41 @@ func (s *Server) GetUserTodoItemsWithHashAppendPreAllocation(ctx context.Context
 	}
 }
 
-func (s *Server) GetUserTodoItemsWithHashPointer(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
+func (s *Server) transformTodosAppendChannels(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
+
+	todoWithHashChannel := make(chan *TodoItemWithHash, len(todos))
+	var response []*TodoItemWithHash
+
+	f := func(ctx context.Context, item *TodoItem, ch chan *TodoItemWithHash) error {
+		hash, err := process(ctx, item)
+		ch <- &TodoItemWithHash{Item: item, Hash: hash}
+		return err
+	}
+
+	var list []func(context.Context) error
+	for _, todo := range todos {
+		todo := todo
+		list = append(list, func(ctx context.Context) error {
+			return f(ctx, toProtoTodoItem(todo), todoWithHashChannel)
+		})
+	}
+
+	parallelChannel := make(chan error)
+	go parallel(ctx, list, parallelChannel)
+
+	for i := 0; i < len(todos); i++ {
+		response = append(response, <-todoWithHashChannel)
+	}
+
+	err := <-parallelChannel
+
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (s *Server) GetUserTodoItemsWithHashAppendChannels(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
 
 	log.Println("Received get user todo items with hash request", message)
 
@@ -363,7 +436,7 @@ func (s *Server) GetUserTodoItemsWithHashPointer(ctx context.Context, message *G
 
 	response := &GetUserTodoItemsWithHashResponse{}
 
-	items, err := s.transformTodosPointer(ctx, todos, s.computeTodoHash)
+	items, err := s.transformTodosAppendChannels(ctx, todos, s.computeTodoHash)
 	if err != nil {
 		return nil, err
 	}
