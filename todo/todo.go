@@ -8,6 +8,8 @@ import (
 	sync "sync"
 	"time"
 	"todo-app/models"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const mod = 291391
@@ -133,27 +135,16 @@ func (s *Server) computeTodoHash(ctx context.Context, item *TodoItem) (int32, er
 	}
 }
 
-func parallel(ctx context.Context, list []func(context.Context) error, ch chan error) {
-
-	childContext, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	errorChannel := make(chan error, len(list))
-
+func parallel(ctx context.Context, list []func(context.Context) error) error {
+	group, childContext := errgroup.WithContext(ctx)
 	for _, f := range list {
-		go func(f func(context.Context) error) {
-			errorChannel <- f(childContext)
-		}(f)
+		f := f
+		group.Go(func() error {
+			err := f(childContext)
+			return err
+		})
 	}
-
-	for i := 0; i < len(list); i++ {
-		err := <-errorChannel
-		if err != nil {
-			ch <- err
-			return
-		}
-	}
-	ch <- nil
+	return group.Wait()
 }
 
 func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
@@ -175,9 +166,7 @@ func (s *Server) transformTodos(ctx context.Context, todos []*models.TodoItem, p
 		})
 	}
 
-	parallelChannel := make(chan error)
-	go parallel(ctx, list, parallelChannel)
-	err := <-parallelChannel
+	err := parallel(ctx, list)
 
 	if err != nil {
 		return nil, err
@@ -231,9 +220,7 @@ func (s *Server) transformTodosPointer(ctx context.Context, todos []*models.Todo
 		})
 	}
 
-	parallelChannel := make(chan error)
-	go parallel(ctx, list, parallelChannel)
-	err := <-parallelChannel
+	err := parallel(ctx, list)
 
 	if err != nil {
 		return nil, err
@@ -289,9 +276,7 @@ func (s *Server) transformTodosAppend(ctx context.Context, todos []*models.TodoI
 		})
 	}
 
-	parallelChannel := make(chan error)
-	go parallel(ctx, list, parallelChannel)
-	err := <-parallelChannel
+	err := parallel(ctx, list)
 
 	if err != nil {
 		return nil, err
@@ -347,9 +332,7 @@ func (s *Server) transformTodosAppendPreAllocation(ctx context.Context, todos []
 		})
 	}
 
-	parallelChannel := make(chan error)
-	go parallel(ctx, list, parallelChannel)
-	err := <-parallelChannel
+	err := parallel(ctx, list)
 
 	if err != nil {
 		return nil, err
@@ -403,14 +386,11 @@ func (s *Server) transformTodosAppendChannels(ctx context.Context, todos []*mode
 		})
 	}
 
-	parallelChannel := make(chan error)
-	go parallel(ctx, list, parallelChannel)
+	err := parallel(ctx, list)
 
 	for i := 0; i < len(todos); i++ {
 		response = append(response, <-todoWithHashChannel)
 	}
-
-	err := <-parallelChannel
 
 	if err != nil {
 		return nil, err
@@ -465,14 +445,11 @@ func (s *Server) transformTodosIndexingChannels(ctx context.Context, todos []*mo
 		})
 	}
 
-	parallelChannel := make(chan error)
-	go parallel(ctx, list, parallelChannel)
+	err := parallel(ctx, list)
 
 	for i := 0; i < length; i++ {
 		response[i] = <-todoWithHashChannel
 	}
-
-	err := <-parallelChannel
 
 	if err != nil {
 		return nil, err
