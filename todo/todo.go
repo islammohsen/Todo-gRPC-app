@@ -449,3 +449,65 @@ func (s *Server) GetUserTodoItemsWithHashAppendChannels(ctx context.Context, mes
 		return response, nil
 	}
 }
+
+func (s *Server) transformTodosIndexingChannels(ctx context.Context, todos []*models.TodoItem, process func(context.Context, *TodoItem) (int32, error)) ([]*TodoItemWithHash, error) {
+
+	length := len(todos)
+	todoWithHashChannel := make(chan *TodoItemWithHash, length)
+	response := make([]*TodoItemWithHash, length)
+
+	f := func(ctx context.Context, item *TodoItem, ch chan *TodoItemWithHash) error {
+		hash, err := process(ctx, item)
+		ch <- &TodoItemWithHash{Item: item, Hash: hash}
+		return err
+	}
+
+	var list []func(context.Context) error
+	for _, todo := range todos {
+		todo := todo
+		list = append(list, func(ctx context.Context) error {
+			return f(ctx, toProtoTodoItem(todo), todoWithHashChannel)
+		})
+	}
+
+	parallelChannel := make(chan error)
+	go parallel(ctx, list, parallelChannel)
+
+	for i := 0; i < length; i++ {
+		response[i] = <-todoWithHashChannel
+	}
+
+	err := <-parallelChannel
+
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (s *Server) GetUserTodoItemsWithHashIndexingChannels(ctx context.Context, message *GetUserTodoItemsWithHashRequest) (*GetUserTodoItemsWithHashResponse, error) {
+
+	log.Println("Received get user todo items with hash request", message)
+
+	userID := message.UserID
+	todos, err := s.DS.GetUserTodos(userID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserTodoItemsWithHashResponse{}
+
+	items, err := s.transformTodosIndexingChannels(ctx, todos, s.computeTodoHash)
+	if err != nil {
+		return nil, err
+	}
+	response.Items = items
+
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("Timed out")
+	default:
+		return response, nil
+	}
+}
